@@ -1,0 +1,27 @@
+{
+  "pages": [
+    { "path": "pages/auth/login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } },
+    { "path": "pages/auth/register", "style": { "navigationBarTitleText": "注册", "navigationStyle": "custom" } },
+    { "path": "pages/ledger/index", "style": { "navigationBarTitleText": "账本" } },
+    { "path": "pages/ledger/transaction-form", "style": { "navigationBarTitleText": "新增流水" } },
+    { "path": "pages/ledger/categories", "style": { "navigationBarTitleText": "收支分类" } },
+    { "path": "pages/chat/index", "style": { "navigationBarTitleText": "AI 助手" } },
+    { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的" } }
+  ],
+  "tabBar": {
+    "color": "#7c8799",
+    "selectedColor": "#1677ff",
+    "backgroundColor": "#ffffff",
+    "borderStyle": "black",
+    "list": [
+      { "pagePath": "pages/ledger/index", "text": "账本" },
+      { "pagePath": "pages/chat/index", "text": "助手" },
+      { "pagePath": "pages/profile/index", "text": "我的" }
+    ]
+  },
+  "globalStyle": {
+    "navigationBarBackgroundColor": "#ffffff",
+    "navigationBarTextStyle": "black",
+    "backgroundColor": "#f5f7fb"
+  }
+}
