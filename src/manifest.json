@@ -1,20 +1,25 @@
 {
-  "name": "美记账",
-  "appid": "__UNI__MECHI_BOOKKEEPING",
-  "description": "美记账 App 客户端",
-  "versionName": "0.1.0",
-  "versionCode": "100",
-  "transformPx": false,
-  "app-plus": {
-    "usingComponents": true
-  },
-  "h5": {
-    "title": "美记账"
-  },
-  "mp-weixin": {
-    "appid": "",
-    "setting": {
-      "urlCheck": false
+    "name" : "美记账",
+    "appid" : "__UNI__DAB5E07",
+    "description" : "美记账 App 客户端",
+    "versionName" : "0.1.0",
+    "versionCode" : "100",
+    "transformPx" : false,
+    "app-plus" : {
+        "usingComponents" : true,
+        "distribute" : {
+            "ios" : {
+                "dSYMs" : false
+            }
+        }
+    },
+    "h5" : {
+        "title" : "美记账"
+    },
+    "mp-weixin" : {
+        "appid" : "",
+        "setting" : {
+            "urlCheck" : false
+        }
     }
-  }
 }
