@@ -1,14 +1,6 @@
 import { API_BASE_URL } from '../config'
 import { authStore } from '../stores/auth'
-import { request } from '../utils/request'
-
-function redirectToLogin() {
-  authStore.clear()
-  const pages = getCurrentPages()
-  if (pages[pages.length - 1]?.route !== 'pages/auth/login') {
-    uni.reLaunch({ url: '/pages/auth/login' })
-  }
-}
+import { redirectToLogin, refreshAccessToken, request } from '../utils/request'
 
 function consumeSseEvents(buffer, onToken) {
   const events = buffer.split(/\r?\n\r?\n/)
@@ -24,7 +16,7 @@ function consumeSseEvents(buffer, onToken) {
   return remainder
 }
 
-async function streamChat(data, onToken) {
+async function streamChat(data, onToken, retried = false) {
   if (typeof fetch !== 'function') {
     const response = await request({ url: '/api/v1/app/chat', method: 'POST', data })
     if (!response.success) throw new Error(response.error || '暂时无法回复')
@@ -41,6 +33,15 @@ async function streamChat(data, onToken) {
     },
     body: JSON.stringify(data)
   })
+  if (response.status === 401 && !retried) {
+    try {
+      await refreshAccessToken()
+      return streamChat(data, onToken, true)
+    } catch (error) {
+      redirectToLogin()
+      throw error
+    }
+  }
   if (response.status === 401) {
     redirectToLogin()
     throw new Error('登录已过期，请重新登录')
@@ -63,7 +64,7 @@ async function streamChat(data, onToken) {
   if (buffer.trim()) consumeSseEvents(`${buffer}\n\n`, onToken)
 }
 
-async function uploadImage(filePath) {
+function uploadImage(filePath, retried = false) {
   return new Promise((resolve, reject) => {
     uni.uploadFile({
       url: `${API_BASE_URL}/api/v1/app/storage/images`,
@@ -76,6 +77,16 @@ async function uploadImage(filePath) {
       success: ({ statusCode, data }) => {
         let body
         try { body = typeof data === 'string' ? JSON.parse(data) : data } catch { body = null }
+        if (statusCode === 401 && !retried) {
+          refreshAccessToken()
+            .then(() => uploadImage(filePath, true))
+            .then(resolve)
+            .catch((error) => {
+              redirectToLogin()
+              reject(error)
+            })
+          return
+        }
         if (statusCode === 401) {
           redirectToLogin()
           reject(new Error('登录已过期，请重新登录'))
@@ -94,7 +105,7 @@ async function uploadImage(filePath) {
 
 export const appApi = {
   register: (data) => request({ url: '/api/v1/app/register', method: 'POST', data }),
-  login: (data) => request({ url: '/api/v1/app/login', method: 'POST', data }),
+  login: (data) => request({ url: '/api/v1/app/login', method: 'POST', data, retryOnUnauthorized: false }),
   logout: () => request({ url: '/api/v1/app/logout', method: 'POST' }),
   getMe: () => request({ url: '/api/v1/app/me' }),
   updateMe: (data) => request({ url: '/api/v1/app/me', method: 'PATCH', data }),
@@ -105,14 +116,17 @@ export const appApi = {
   deleteCategory: (id) => request({ url: `/api/v1/app/bookkeeping/categories/${id}`, method: 'DELETE', unwrapResult: true }),
 
   listTransactions: (range) => request({ url: '/api/v1/app/bookkeeping/transactions', data: range, unwrapResult: true }),
+  getTransaction: (id) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, unwrapResult: true }),
   getSummary: (range) => request({ url: '/api/v1/app/bookkeeping/transactions/summary', data: range, unwrapResult: true }),
+  getTransactionActivityStats: () => request({ url: '/api/v1/app/bookkeeping/transactions/activity-stats', unwrapResult: true }),
   createTransaction: (data) => request({ url: '/api/v1/app/bookkeeping/transactions', method: 'POST', data, unwrapResult: true }),
   updateTransaction: (id, data) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, method: 'PATCH', data, unwrapResult: true }),
   deleteTransaction: (id) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, method: 'DELETE', unwrapResult: true }),
 
   chat: (data) => request({ url: '/api/v1/app/chat', method: 'POST', data }),
   streamChat: (data, onToken) => streamChat(data, onToken),
-  chatHistory: (sessionId) => request({ url: '/api/v1/app/chat/history', data: { sessionId } }),
+  listChatConversations: () => request({ url: '/api/v1/app/chat/conversations' }),
+  chatHistory: (sessionId) => request({ url: '/api/v1/app/chat/history', data: { sessionId} }),
   uploadImage,
   listCommands: () => request({ url: '/api/v1/app/command/list' })
 }

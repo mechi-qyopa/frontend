@@ -2,7 +2,7 @@
   <view class="page">
     <view class="book-header">
       <view class="back-button" @click="goBack">‹</view>
-      <view class="book-title"><text>默认账本</text><text class="book-subtitle">记录每一笔收支</text></view>
+      <view class="book-title"><text>{{ editingId ? '编辑流水' : '默认账本' }}</text><text class="book-subtitle">{{ editingId ? '修改金额、备注或分类' : '记录每一笔收支' }}</text></view>
       <view class="book-icon">📋</view>
     </view>
 
@@ -29,7 +29,7 @@
         <view class="amount-display"><text class="currency">¥</text><text>{{ displayAmount }}</text></view>
       </view>
       <view class="keypad">
-        <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)">{{ key.action === 'submit' && submitting ? '保存中' : key.label }}</view>
+        <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)">{{ key.action === 'submit' && submitting ? '保存中' : key.action === 'submit' && editingId ? '保存修改' : key.label }}</view>
       </view>
     </view>
 
@@ -53,6 +53,7 @@ import { formatDate } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
 
 const categories = ref([])
+const editingId = ref(null)
 const submitting = ref(false)
 const calendarVisible = ref(false)
 const calendarYear = ref(new Date().getFullYear())
@@ -76,7 +77,27 @@ const calendarCells = computed(() => {
 
 onLoad(load)
 function goBack() { uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: '/pages/ledger/index' }) }) }
-async function load() { try { categories.value = await appApi.listCategories() } catch (error) { showRequestError(error) } }
+async function load(options = {}) {
+  const id = Number(options.id)
+  const validId = Number.isInteger(id) && id > 0
+  try {
+    const [categoryData, transaction] = await Promise.all([
+      appApi.listCategories(),
+      validId ? appApi.getTransaction(id) : Promise.resolve(null)
+    ])
+    categories.value = categoryData
+    if (!transaction) return
+    editingId.value = id
+    Object.assign(form, {
+      categoryId: transaction.categorySource === 'SYSTEM' ? transaction.systemCategoryId : transaction.categoryId,
+      categorySource: transaction.categorySource,
+      transactionType: transaction.transactionType,
+      occurredOn: transaction.occurredOn,
+      note: transaction.note || ''
+    })
+    amountExpression.value = Number(transaction.amount).toFixed(2)
+  } catch (error) { showRequestError(error) }
+}
 function selectType(type) { form.transactionType = type; form.categoryId = null; form.categorySource = null }
 function selectCategory(item) { form.categoryId = item.id; form.categorySource = item.source }
 function isSelectedCategory(item) { return item.id === form.categoryId && item.source === form.categorySource }
@@ -130,7 +151,13 @@ async function submit() {
   if (calculatedAmount === null || calculatedAmount <= 0) return uni.showToast({ title: '请输入正确金额', icon: 'none' })
   form.amount = calculatedAmount.toFixed(2)
   submitting.value = true
-  try { await appApi.createTransaction({ ...form, amount: form.amount, note: form.note || null }); uni.showToast({ title: '已保存', icon: 'success' }); setTimeout(() => uni.navigateBack(), 450) } catch (error) { showRequestError(error) } finally { submitting.value = false }
+  try {
+    const payload = { ...form, amount: form.amount, note: form.note || null }
+    if (editingId.value) await appApi.updateTransaction(editingId.value, payload)
+    else await appApi.createTransaction(payload)
+    uni.showToast({ title: editingId.value ? '已更新' : '已保存', icon: 'success' })
+    setTimeout(() => uni.navigateBack(), 450)
+  } catch (error) { showRequestError(error) } finally { submitting.value = false }
 }
 </script>
 

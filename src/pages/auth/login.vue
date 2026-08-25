@@ -30,7 +30,7 @@ async function submit() {
   submitting.value = true
   try {
     const result = await appApi.login(form)
-    authStore.setLogin(result.token, result.user)
+    authStore.setLogin(result.token, result.refreshToken, result.user)
     uni.switchTab({ url: '/pages/ledger/index' })
   } catch (error) {
     showRequestError(error)

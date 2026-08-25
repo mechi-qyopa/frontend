@@ -1,0 +1,66 @@
+.chat-page[data-v-da04a0a0] { display: flex; flex-direction: column; height: calc(100vh - var(--window-top) - var(--window-bottom)); background: #f5f7fb;
+}
+.messages[data-v-da04a0a0] { flex: 1; min-height: 0; padding: 1rem 0.75rem 0.75rem; box-sizing: border-box;
+}
+.welcome[data-v-da04a0a0] { display: flex; flex-direction: column; align-items: center; margin: 3.625rem 0.625rem; color: #667085; text-align: center; line-height: 1.8;
+}
+.welcome-avatar[data-v-da04a0a0],.message-avatar[data-v-da04a0a0] { display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; border-radius: 50%; font-weight: 700;
+}
+.welcome-avatar[data-v-da04a0a0] { width: 3.25rem; height: 3.25rem; margin-bottom: 0.6875rem; color: #fff; background: linear-gradient(135deg, #1677ff, #76aeff); box-shadow: 0 0.3125rem 0.75rem rgba(22, 119, 255, .2); font-size: 1.0625rem;
+}
+.welcome-title[data-v-da04a0a0] { display: block; margin-bottom: 0.3125rem; color: #344054; font-size: 1.125rem; font-weight: 600;
+}
+.welcome-description[data-v-da04a0a0] { color: #667085; font-size: 0.84375rem;
+}
+.message-row[data-v-da04a0a0] { display: flex; align-items: flex-start; gap: 0.4375rem; margin: 0.75rem 0;
+}
+.user-row[data-v-da04a0a0] { justify-content: flex-end;
+}
+.assistant-row[data-v-da04a0a0] { justify-content: flex-start;
+}
+.message-avatar[data-v-da04a0a0] { width: 2rem; height: 2rem; font-size: 0.75rem;
+}
+.assistant-avatar[data-v-da04a0a0] { color: #fff; background: linear-gradient(135deg, #1677ff, #76aeff); box-shadow: 0 0.15625rem 0.4375rem rgba(22, 119, 255, .18);
+}
+.user-avatar[data-v-da04a0a0] { color: #1677ff; background: #dcecff;
+}
+.user-avatar-image[data-v-da04a0a0] { display: block; background: #dcecff;
+}
+.message-content[data-v-da04a0a0] { display: flex; flex-direction: column; max-width: calc(100% - 2.4375rem);
+}
+.user-row .message-content[data-v-da04a0a0] { align-items: flex-end;
+}
+.assistant-row .message-content[data-v-da04a0a0] { align-items: flex-start;
+}
+.message-role[data-v-da04a0a0] { display: none;
+}
+.message[data-v-da04a0a0] { max-width: 100%; padding: 0.625rem 0.75rem; border-radius: 0.6875rem; line-height: 1.6; white-space: pre-wrap; word-break: break-word; box-sizing: border-box;
+}
+.user[data-v-da04a0a0] { color: #fff; background: linear-gradient(135deg, #1677ff, #3e91ff); box-shadow: 0 0.25rem 0.5625rem rgba(22, 119, 255, .16);
+}
+.assistant[data-v-da04a0a0] { color: #344054; background: #fff; border: 0.03125rem solid #edf0f5; box-shadow: 0 0.1875rem 0.625rem rgba(29, 41, 57, .05);
+}
+.typing-cursor[data-v-da04a0a0] { display: inline-block; margin-left: 0.125rem; color: #1677ff; animation: blink-da04a0a0 1s step-end infinite;
+}
+.composer[data-v-da04a0a0] { display: flex; align-items: center; flex-shrink: 0; gap: 0.5rem; padding: 0.5625rem 0.75rem calc(0.5625rem + env(safe-area-inset-bottom)); border-top: 0.03125rem solid #edf0f5; background: rgba(255, 255, 255, .97); box-shadow: 0 -0.1875rem 0.6875rem rgba(29, 41, 57, .05);
+}
+.composer-field[data-v-da04a0a0] { display: flex; align-items: center; flex: 1; min-width: 0; height: 2.5625rem; padding: 0 0.625rem 0 0.75rem; border: 0.0625rem solid transparent; border-radius: 0.75rem; background: #f2f4f7; box-sizing: border-box; transition: border-color .2s, background .2s;
+}
+.composer-field[data-v-da04a0a0]:focus-within { border-color: #a9ceff; background: #fff;
+}
+.composer-input[data-v-da04a0a0] { flex: 1; min-width: 0; height: 2.4375rem; color: #344054; font-size: 0.875rem;
+}
+.composer-count[data-v-da04a0a0] { flex-shrink: 0; margin-left: 0.3125rem; color: #98a2b3; font-size: 0.625rem;
+}
+.send[data-v-da04a0a0] { width: 3.625rem; height: 2.5625rem; margin: 0; padding: 0; border-radius: 0.75rem; color: #98a2b3; line-height: 2.5625rem; background: #e4e7ec; font-size: 0.8125rem; transition: transform .2s, background .2s;
+}
+.send[data-v-da04a0a0]::after { border: 0;
+}
+.send-ready[data-v-da04a0a0] { color: #fff; background: #1677ff; box-shadow: 0 0.25rem 0.5rem rgba(22, 119, 255, .2);
+}
+.send-ready[data-v-da04a0a0]:active { transform: scale(.96);
+}
+@keyframes blink-da04a0a0 {
+50% { opacity: 0;
+}
+}

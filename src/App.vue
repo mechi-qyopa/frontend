@@ -18,4 +18,7 @@ button { border-radius: 16rpx; }
 .danger-button { color: #ef4444; background: #fff1f2; }
 .muted { color: #7c8799; }
 .empty { padding: 90rpx 24rpx; color: #98a2b3; text-align: center; }
+
+/* H5 使用 Uni 内置 tabBar，此选择器需覆盖运行时写入的 10px 内联字号。 */
+.uni-tabbar__label { font-size: 16px !important; line-height: 1.5 !important; }
 </style>

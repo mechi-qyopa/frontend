@@ -1,7 +1,7 @@
 import { API_BASE_URL } from '../config'
 import { authStore } from '../stores/auth'
 
-function redirectToLogin() {
+export function redirectToLogin() {
   authStore.clear()
   const pages = getCurrentPages()
   if (pages[pages.length - 1]?.route !== 'pages/auth/login') {
@@ -9,7 +9,41 @@ function redirectToLogin() {
   }
 }
 
-export function request({ url, method = 'GET', data, unwrapResult = false, header = {} }) {
+let refreshPromise = null
+
+export function refreshAccessToken() {
+  if (refreshPromise) return refreshPromise
+  if (!authStore.refreshToken) {
+    return Promise.reject(new Error('登录已过期，请重新登录'))
+  }
+
+  refreshPromise = new Promise((resolve, reject) => {
+    uni.request({
+      url: `${API_BASE_URL}/api/v1/app/token/refresh`,
+      method: 'POST',
+      data: { refreshToken: authStore.refreshToken },
+      header: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json'
+      },
+      success: ({ statusCode, data }) => {
+        if (statusCode < 200 || statusCode >= 300 || !data?.token || !data?.refreshToken) {
+          reject(new Error(data?.msg || data?.message || '登录已过期，请重新登录'))
+          return
+        }
+        authStore.setTokens(data.token, data.refreshToken)
+        resolve()
+      },
+      fail: () => reject(new Error('网络连接失败，请检查服务地址'))
+    })
+  }).finally(() => {
+    refreshPromise = null
+  })
+
+  return refreshPromise
+}
+
+export function request({ url, method = 'GET', data, unwrapResult = false, header = {}, retryOnUnauthorized = true }) {
   return new Promise((resolve, reject) => {
     uni.request({
       url: `${API_BASE_URL}${url}`,
@@ -22,6 +56,16 @@ export function request({ url, method = 'GET', data, unwrapResult = false, heade
         ...header
       },
       success: ({ statusCode, data: body }) => {
+        if (statusCode === 401 && retryOnUnauthorized) {
+          refreshAccessToken()
+            .then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized: false }))
+            .then(resolve)
+            .catch((error) => {
+              redirectToLogin()
+              reject(error)
+            })
+          return
+        }
         if (statusCode === 401) {
           redirectToLogin()
           reject(new Error('登录已过期，请重新登录'))

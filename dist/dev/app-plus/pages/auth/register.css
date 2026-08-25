@@ -1,0 +1,18 @@
+.auth-page[data-v-3d5ab0d5] { min-height: 100vh; padding: 3.5rem 1.5rem 1.5rem; background: linear-gradient(160deg, #e8f2ff 0%, #f5f7fb 52%, #fff 100%);
+}
+.hero[data-v-3d5ab0d5] { margin-bottom: 1.9375rem;
+}
+.brand[data-v-3d5ab0d5] { display: block; color: #1158b8; font-size: 1.8125rem; font-weight: 700;
+}
+.subtitle[data-v-3d5ab0d5] { display: block; margin-top: 0.5625rem; color: #60708a; font-size: 0.875rem;
+}
+.form-card[data-v-3d5ab0d5] { padding: 1.375rem 1.125rem; border-radius: 1rem; background: #fff; box-shadow: 0 0.625rem 1.875rem rgba(26, 84, 164, .12);
+}
+.form-space[data-v-3d5ab0d5] { margin-top: 0.6875rem;
+}
+.submit[data-v-3d5ab0d5] { margin-top: 1.3125rem; height: 2.875rem; line-height: 2.875rem;
+}
+.footer-text[data-v-3d5ab0d5] { margin-top: 1.1875rem; color: #7c8799; font-size: 0.8125rem; text-align: center;
+}
+.link[data-v-3d5ab0d5] { color: #1677ff;
+}

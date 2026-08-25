@@ -1,0 +1,19 @@
+.page[data-v-eb3d6ed0] { padding: 0.75rem;
+}.form[data-v-eb3d6ed0] { padding: 0.75rem;
+}.form-title[data-v-eb3d6ed0] { display: block; margin-bottom: 0.5rem; color: #344054; font-weight: 600;
+}.type-row[data-v-eb3d6ed0] { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.625rem;
+}.pill[data-v-eb3d6ed0] { padding: 0.4375rem 0.6875rem; border-radius: 0.5rem; color: #667085; background: #f2f4f7; font-size: 0.78125rem;
+}.selected-expense[data-v-eb3d6ed0] { color: #e11d48; background: #fff1f2;
+}.selected-income[data-v-eb3d6ed0] { color: #16a34a; background: #dcfce7;
+}.small-add[data-v-eb3d6ed0] { flex: 1; height: 1.875rem; color: #fff; line-height: 1.875rem; background: #1677ff; font-size: 0.8125rem;
+}.section[data-v-eb3d6ed0] { margin-top: 1.1875rem;
+}.section-title[data-v-eb3d6ed0] { display: block; margin: 0 0.25rem 0.4375rem; color: #344054; font-size: 0.90625rem; font-weight: 600;
+}.category-card[data-v-eb3d6ed0] { overflow: hidden; border-radius: 0.625rem; background: #fff;
+}.category-item[data-v-eb3d6ed0] { display: flex; align-items: center; justify-content: space-between; padding: 0.8125rem; border-bottom: 0.03125rem solid #f2f4f7;
+}.category-item[data-v-eb3d6ed0]:last-child { border: 0;
+}.edit[data-v-eb3d6ed0] { margin-right: 0.8125rem; color: #1677ff; font-size: 0.78125rem;
+}.delete[data-v-eb3d6ed0] { color: #e11d48; font-size: 0.78125rem;
+}.readonly[data-v-eb3d6ed0] { color: #667085; font-size: 0.75rem;
+}.disabled[data-v-eb3d6ed0] { color: #e11d48; font-size: 0.75rem;
+}.small-empty[data-v-eb3d6ed0] { padding: 1.3125rem;
+}
