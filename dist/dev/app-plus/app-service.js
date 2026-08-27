@@ -49,8 +49,9 @@ if (uni.restoreGlobal) {
     /* HookFlags.PAGE */
   );
   var define_import_meta_env_default = {};
-  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "http://10.10.0.147:7002";
+  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "http://8.156.85.200:8080";
   const APP_TOKEN_KEY = "mechi_app_token";
+  const APP_REFRESH_TOKEN_KEY = "mechi_app_refresh_token";
   const APP_PROFILE_KEY = "mechi_app_profile";
   const parseProfile = () => {
     const value = uni.getStorageSync(APP_PROFILE_KEY);
@@ -64,16 +65,23 @@ if (uni.restoreGlobal) {
   };
   const authStore = vue.reactive({
     token: "",
+    refreshToken: "",
     profile: null,
     restore() {
       this.token = uni.getStorageSync(APP_TOKEN_KEY) || "";
+      this.refreshToken = uni.getStorageSync(APP_REFRESH_TOKEN_KEY) || "";
       this.profile = parseProfile();
     },
-    setLogin(token, profile) {
-      this.token = token;
+    setLogin(token, refreshToken, profile) {
+      this.setTokens(token, refreshToken);
       this.profile = profile;
-      uni.setStorageSync(APP_TOKEN_KEY, token);
       uni.setStorageSync(APP_PROFILE_KEY, JSON.stringify(profile));
+    },
+    setTokens(token, refreshToken) {
+      this.token = token;
+      this.refreshToken = refreshToken;
+      uni.setStorageSync(APP_TOKEN_KEY, token);
+      uni.setStorageSync(APP_REFRESH_TOKEN_KEY, refreshToken);
     },
     setProfile(profile) {
       this.profile = profile;
@@ -81,13 +89,15 @@ if (uni.restoreGlobal) {
     },
     clear() {
       this.token = "";
+      this.refreshToken = "";
       this.profile = null;
       uni.removeStorageSync(APP_TOKEN_KEY);
+      uni.removeStorageSync(APP_REFRESH_TOKEN_KEY);
       uni.removeStorageSync(APP_PROFILE_KEY);
     }
   });
   authStore.restore();
-  function redirectToLogin$1() {
+  function redirectToLogin() {
     var _a;
     authStore.clear();
     const pages = getCurrentPages();
@@ -95,7 +105,38 @@ if (uni.restoreGlobal) {
       uni.reLaunch({ url: "/pages/auth/login" });
     }
   }
-  function request({ url, method = "GET", data, unwrapResult = false, header = {} }) {
+  let refreshPromise = null;
+  function refreshAccessToken() {
+    if (refreshPromise)
+      return refreshPromise;
+    if (!authStore.refreshToken) {
+      return Promise.reject(new Error("登录已过期，请重新登录"));
+    }
+    refreshPromise = new Promise((resolve, reject) => {
+      uni.request({
+        url: `${API_BASE_URL}/api/v1/app/token/refresh`,
+        method: "POST",
+        data: { refreshToken: authStore.refreshToken },
+        header: {
+          Accept: "application/json",
+          "Content-Type": "application/json"
+        },
+        success: ({ statusCode, data }) => {
+          if (statusCode < 200 || statusCode >= 300 || !(data == null ? void 0 : data.token) || !(data == null ? void 0 : data.refreshToken)) {
+            reject(new Error((data == null ? void 0 : data.msg) || (data == null ? void 0 : data.message) || "登录已过期，请重新登录"));
+            return;
+          }
+          authStore.setTokens(data.token, data.refreshToken);
+          resolve();
+        },
+        fail: () => reject(new Error("网络连接失败，请检查服务地址"))
+      });
+    }).finally(() => {
+      refreshPromise = null;
+    });
+    return refreshPromise;
+  }
+  function request({ url, method = "GET", data, unwrapResult = false, header = {}, retryOnUnauthorized = true }) {
     return new Promise((resolve, reject) => {
       uni.request({
         url: `${API_BASE_URL}${url}`,
@@ -108,8 +149,15 @@ if (uni.restoreGlobal) {
           ...header
         },
         success: ({ statusCode, data: body }) => {
+          if (statusCode === 401 && retryOnUnauthorized) {
+            refreshAccessToken().then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized: false })).then(resolve).catch((error) => {
+              redirectToLogin();
+              reject(error);
+            });
+            return;
+          }
           if (statusCode === 401) {
-            redirectToLogin$1();
+            redirectToLogin();
             reject(new Error("登录已过期，请重新登录"));
             return;
           }
@@ -134,14 +182,6 @@ if (uni.restoreGlobal) {
   function showRequestError(error) {
     uni.showToast({ title: (error == null ? void 0 : error.message) || "操作失败", icon: "none", duration: 2200 });
   }
-  function redirectToLogin() {
-    var _a;
-    authStore.clear();
-    const pages = getCurrentPages();
-    if (((_a = pages[pages.length - 1]) == null ? void 0 : _a.route) !== "pages/auth/login") {
-      uni.reLaunch({ url: "/pages/auth/login" });
-    }
-  }
   function consumeSseEvents(buffer, onToken) {
     const events = buffer.split(/\r?\n\r?\n/);
     const remainder = events.pop();
@@ -152,7 +192,7 @@ if (uni.restoreGlobal) {
     });
     return remainder;
   }
-  async function streamChat(data, onToken) {
+  async function streamChat(data, onToken, retried = false) {
     if (typeof fetch !== "function") {
       const response2 = await request({ url: "/api/v1/app/chat", method: "POST", data });
       if (!response2.success)
@@ -169,6 +209,15 @@ if (uni.restoreGlobal) {
       },
       body: JSON.stringify(data)
     });
+    if (response.status === 401 && !retried) {
+      try {
+        await refreshAccessToken();
+        return streamChat(data, onToken, true);
+      } catch (error) {
+        redirectToLogin();
+        throw error;
+      }
+    }
     if (response.status === 401) {
       redirectToLogin();
       throw new Error("登录已过期，请重新登录");
@@ -194,7 +243,7 @@ if (uni.restoreGlobal) {
 
 `, onToken);
   }
-  async function uploadImage(filePath) {
+  function uploadImage(filePath, retried = false) {
     return new Promise((resolve, reject) => {
       uni.uploadFile({
         url: `${API_BASE_URL}/api/v1/app/storage/images`,
@@ -210,6 +259,13 @@ if (uni.restoreGlobal) {
             body = typeof data === "string" ? JSON.parse(data) : data;
           } catch {
             body = null;
+          }
+          if (statusCode === 401 && !retried) {
+            refreshAccessToken().then(() => uploadImage(filePath, true)).then(resolve).catch((error) => {
+              redirectToLogin();
+              reject(error);
+            });
+            return;
           }
           if (statusCode === 401) {
             redirectToLogin();
@@ -228,7 +284,7 @@ if (uni.restoreGlobal) {
   }
   const appApi = {
     register: (data) => request({ url: "/api/v1/app/register", method: "POST", data }),
-    login: (data) => request({ url: "/api/v1/app/login", method: "POST", data }),
+    login: (data) => request({ url: "/api/v1/app/login", method: "POST", data, retryOnUnauthorized: false }),
     logout: () => request({ url: "/api/v1/app/logout", method: "POST" }),
     getMe: () => request({ url: "/api/v1/app/me" }),
     updateMe: (data) => request({ url: "/api/v1/app/me", method: "PATCH", data }),
@@ -237,6 +293,7 @@ if (uni.restoreGlobal) {
     updateCategory: (id, data) => request({ url: `/api/v1/app/bookkeeping/categories/${id}`, method: "PATCH", data, unwrapResult: true }),
     deleteCategory: (id) => request({ url: `/api/v1/app/bookkeeping/categories/${id}`, method: "DELETE", unwrapResult: true }),
     listTransactions: (range) => request({ url: "/api/v1/app/bookkeeping/transactions", data: range, unwrapResult: true }),
+    getTransaction: (id) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, unwrapResult: true }),
     getSummary: (range) => request({ url: "/api/v1/app/bookkeeping/transactions/summary", data: range, unwrapResult: true }),
     getTransactionActivityStats: () => request({ url: "/api/v1/app/bookkeeping/transactions/activity-stats", unwrapResult: true }),
     createTransaction: (data) => request({ url: "/api/v1/app/bookkeeping/transactions", method: "POST", data, unwrapResult: true }),
@@ -244,6 +301,7 @@ if (uni.restoreGlobal) {
     deleteTransaction: (id) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, method: "DELETE", unwrapResult: true }),
     chat: (data) => request({ url: "/api/v1/app/chat", method: "POST", data }),
     streamChat: (data, onToken) => streamChat(data, onToken),
+    listChatConversations: () => request({ url: "/api/v1/app/chat/conversations" }),
     chatHistory: (sessionId) => request({ url: "/api/v1/app/chat/history", data: { sessionId } }),
     uploadImage,
     listCommands: () => request({ url: "/api/v1/app/command/list" })
@@ -255,15 +313,19 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const _sfc_main$8 = {
+  const _sfc_main$9 = {
     __name: "login",
     setup(__props, { expose: __expose }) {
       __expose();
       const form = vue.reactive({ username: "", password: "" });
       const submitting = vue.ref(false);
+      const loginReady = vue.ref(false);
       onShow(() => {
-        if (authStore.token)
+        if (authStore.token) {
           uni.switchTab({ url: "/pages/ledger/index" });
+          return;
+        }
+        loginReady.value = true;
       });
       async function submit() {
         if (!form.username || !form.password)
@@ -271,7 +333,7 @@ if (uni.restoreGlobal) {
         submitting.value = true;
         try {
           const result = await appApi.login(form);
-          authStore.setLogin(result.token, result.user);
+          authStore.setLogin(result.token, result.refreshToken, result.user);
           uni.switchTab({ url: "/pages/ledger/index" });
         } catch (error) {
           showRequestError(error);
@@ -282,7 +344,7 @@ if (uni.restoreGlobal) {
       function goRegister() {
         uni.navigateTo({ url: "/pages/auth/register" });
       }
-      const __returned__ = { form, submitting, submit, goRegister, reactive: vue.reactive, ref: vue.ref, get onShow() {
+      const __returned__ = { form, submitting, loginReady, submit, goRegister, reactive: vue.reactive, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -295,65 +357,73 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$8(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
-      vue.createElementVNode("view", { class: "hero" }, [
-        vue.createElementVNode("text", { class: "brand" }, "美记账"),
-        vue.createElementVNode("text", { class: "subtitle" }, "记录每一笔，掌控每一天")
-      ]),
-      vue.createElementVNode("view", { class: "form-card" }, [
-        vue.createElementVNode("text", { class: "title" }, "欢迎回来"),
-        vue.withDirectives(vue.createElementVNode(
-          "input",
-          {
-            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.username = $event),
-            class: "input",
-            placeholder: "用户名",
-            maxlength: "32"
-          },
-          null,
-          512
-          /* NEED_PATCH */
-        ), [
-          [
-            vue.vModelText,
-            $setup.form.username,
-            void 0,
-            { trim: true }
-          ]
-        ]),
-        vue.withDirectives(vue.createElementVNode(
-          "input",
-          {
-            "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.password = $event),
-            class: "input form-space",
-            placeholder: "密码",
-            password: "",
-            maxlength: "72"
-          },
-          null,
-          512
-          /* NEED_PATCH */
-        ), [
-          [vue.vModelText, $setup.form.password]
-        ]),
-        vue.createElementVNode("button", {
-          class: "primary-button submit",
-          loading: $setup.submitting,
-          onClick: $setup.submit
-        }, "登录", 8, ["loading"]),
-        vue.createElementVNode("view", { class: "footer-text" }, [
-          vue.createTextVNode("还没有账号？"),
-          vue.createElementVNode("text", {
-            class: "link",
-            onClick: $setup.goRegister
-          }, "立即注册")
-        ])
-      ])
+      $setup.loginReady ? (vue.openBlock(), vue.createElementBlock(
+        vue.Fragment,
+        { key: 0 },
+        [
+          vue.createElementVNode("view", { class: "hero" }, [
+            vue.createElementVNode("text", { class: "brand" }, "美记账"),
+            vue.createElementVNode("text", { class: "subtitle" }, "记录每一笔，掌控每一天")
+          ]),
+          vue.createElementVNode("view", { class: "form-card" }, [
+            vue.createElementVNode("text", { class: "title" }, "欢迎回来"),
+            vue.withDirectives(vue.createElementVNode(
+              "input",
+              {
+                "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.username = $event),
+                class: "input",
+                placeholder: "用户名",
+                maxlength: "32"
+              },
+              null,
+              512
+              /* NEED_PATCH */
+            ), [
+              [
+                vue.vModelText,
+                $setup.form.username,
+                void 0,
+                { trim: true }
+              ]
+            ]),
+            vue.withDirectives(vue.createElementVNode(
+              "input",
+              {
+                "onUpdate:modelValue": _cache[1] || (_cache[1] = ($event) => $setup.form.password = $event),
+                class: "input form-space",
+                placeholder: "密码",
+                password: "",
+                maxlength: "72"
+              },
+              null,
+              512
+              /* NEED_PATCH */
+            ), [
+              [vue.vModelText, $setup.form.password]
+            ]),
+            vue.createElementVNode("button", {
+              class: "primary-button submit",
+              loading: $setup.submitting,
+              onClick: $setup.submit
+            }, "登录", 8, ["loading"]),
+            vue.createElementVNode("view", { class: "footer-text" }, [
+              vue.createTextVNode("还没有账号？"),
+              vue.createElementVNode("text", {
+                class: "link",
+                onClick: $setup.goRegister
+              }, "立即注册")
+            ])
+          ])
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      )) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
-  const _sfc_main$7 = {
+  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$9, [["render", _sfc_render$8], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
+  const _sfc_main$8 = {
     __name: "register",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -392,7 +462,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$7(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
       vue.createElementVNode("view", { class: "hero" }, [
         vue.createElementVNode("text", { class: "brand" }, "创建账号"),
@@ -478,7 +548,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
+  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$8, [["render", _sfc_render$7], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
   function formatDate(date) {
     const value = date instanceof Date ? date : new Date(date);
     const year = value.getFullYear();
@@ -517,7 +587,7 @@ if (uni.restoreGlobal) {
   function formatAmount(value) {
     return Number(value || 0).toFixed(2);
   }
-  const _sfc_main$6 = {
+  const _sfc_main$7 = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -643,8 +713,8 @@ if (uni.restoreGlobal) {
       function goCreate() {
         uni.navigateTo({ url: "/pages/ledger/transaction-form" });
       }
-      function goStatistics() {
-        uni.navigateTo({ url: "/pages/ledger/expense-statistics" });
+      function goEdit(item) {
+        uni.navigateTo({ url: `/pages/ledger/transaction-form?id=${item.id}` });
       }
       function remove2(item) {
         uni.showModal({ title: "删除流水", content: "删除后无法恢复，确定继续吗？", success: async ({ confirm }) => {
@@ -663,7 +733,7 @@ if (uni.restoreGlobal) {
         return requestId;
       }, set requestId(v) {
         requestId = v;
-      }, categoryMap, transactionGroups, years, weeks, pickerHeading, periodTitle, load, dateParts, formatDayLabel, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, categoryName, goCreate, goStatistics, remove: remove2, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
+      }, categoryMap, transactionGroups, years, weeks, pickerHeading, periodTitle, load, dateParts, formatDayLabel, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, categoryName, goCreate, goEdit, remove: remove2, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -682,7 +752,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$6(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", null, [
       vue.createElementVNode("view", {
         class: "range-bar",
@@ -705,11 +775,7 @@ if (uni.restoreGlobal) {
           )
         ]),
         vue.createElementVNode("view", { class: "range-actions" }, [
-          vue.createElementVNode("text", {
-            class: "statistics-link",
-            onClick: vue.withModifiers($setup.goStatistics, ["stop"])
-          }, "统计"),
-          vue.createElementVNode("text", { class: "range-arrow" }, "⌄")
+          vue.createElementVNode("view", { class: "range-arrow" })
         ])
       ]),
       vue.createElementVNode("view", { class: "summary-card" }, [
@@ -795,7 +861,8 @@ if (uni.restoreGlobal) {
                   vue.renderList(group.items, (item) => {
                     return vue.openBlock(), vue.createElementBlock("view", {
                       key: item.id,
-                      class: "transaction-item"
+                      class: "transaction-item",
+                      onClick: ($event) => $setup.goEdit(item)
                     }, [
                       vue.createElementVNode(
                         "view",
@@ -837,7 +904,7 @@ if (uni.restoreGlobal) {
                         class: "delete",
                         onClick: vue.withModifiers(($event) => $setup.remove(item), ["stop"])
                       }, "删除", 8, ["onClick"])
-                    ]);
+                    ], 8, ["onClick"]);
                   }),
                   128
                   /* KEYED_FRAGMENT */
@@ -965,8 +1032,8 @@ if (uni.restoreGlobal) {
       ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
-  const _sfc_main$5 = {
+  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$7, [["render", _sfc_render$6], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
+  const _sfc_main$6 = {
     __name: "expense-statistics",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -1045,7 +1112,7 @@ if (uni.restoreGlobal) {
         });
         return { background: `conic-gradient(${segments.join(", ")})` };
       });
-      onLoad(load);
+      onShow(load);
       async function load() {
         const currentRequest = ++requestId;
         loading.value = true;
@@ -1151,6 +1218,18 @@ if (uni.restoreGlobal) {
         range.endDate = endDate;
         load();
       }
+      function goCategoryDetail(item) {
+        if (item.categoryId === null || item.categoryId === void 0)
+          return;
+        const params = [
+          `categorySource=${encodeURIComponent(item.categorySource)}`,
+          `categoryId=${encodeURIComponent(item.categoryId)}`,
+          `startDate=${encodeURIComponent(range.startDate)}`,
+          `endDate=${encodeURIComponent(range.endDate)}`,
+          `name=${encodeURIComponent(item.name)}`
+        ].join("&");
+        uni.navigateTo({ url: `/pages/ledger/category-transactions?${params}` });
+      }
       function aggregateExpenses(transactions, categories, selectedRange, type) {
         const trend = createTrendBuckets(selectedRange, type);
         const trendMap = new Map(trend.map((item) => [item.key, item]));
@@ -1166,9 +1245,10 @@ if (uni.restoreGlobal) {
           const bucket = trendMap.get(trendKey);
           if (bucket)
             bucket.cents += cents;
-          const categoryId = item.categorySource === "SYSTEM" ? item.systemCategoryId : item.categoryId;
-          const key = `${item.categorySource || "CUSTOM"}:${categoryId || "unknown"}`;
-          const category = categoryMap.get(key) || { key, name: categoryNames.get(key) || "已删除分类", cents: 0, count: 0 };
+          const categorySource = item.categorySource || "CUSTOM";
+          const categoryId = categorySource === "SYSTEM" ? item.systemCategoryId : item.categoryId;
+          const key = `${categorySource}:${categoryId || "unknown"}`;
+          const category = categoryMap.get(key) || { key, categorySource, categoryId, name: categoryNames.get(key) || "已删除分类", cents: 0, count: 0 };
           category.cents += cents;
           category.count += 1;
           categoryMap.set(key, category);
@@ -1257,8 +1337,8 @@ if (uni.restoreGlobal) {
         return requestId;
       }, set requestId(v) {
         requestId = v;
-      }, years, weeks, pickerHeading, periodTitle, trendUnitLabel, peakAmount, averageExpense, trendPoints, trendSegments, trendLabelPoints, pieChartStyle, load, setPeriodType, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, selectCustomStart, selectCustomEnd, aggregateExpenses, resolveTrendKey, createTrendBuckets, parseDate, pieColor, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
-        return onLoad;
+      }, years, weeks, pickerHeading, periodTitle, trendUnitLabel, peakAmount, averageExpense, trendPoints, trendSegments, trendLabelPoints, pieChartStyle, load, setPeriodType, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, selectCustomStart, selectCustomEnd, goCategoryDetail, aggregateExpenses, resolveTrendKey, createTrendBuckets, parseDate, pieColor, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
+        return onShow;
       }, get appApi() {
         return appApi;
       }, get formatAmount() {
@@ -1280,7 +1360,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$5(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       vue.Fragment,
       null,
@@ -1360,7 +1440,9 @@ if (uni.restoreGlobal) {
                   /* TEXT */
                 )
               ]),
-              vue.createElementVNode("text", { class: "range-arrow" }, "⌄")
+              vue.createElementVNode("view", { class: "range-actions" }, [
+                vue.createElementVNode("view", { class: "range-arrow" })
+              ])
             ]))
           ]),
           vue.createElementVNode("view", { class: "summary-card" }, [
@@ -1541,7 +1623,8 @@ if (uni.restoreGlobal) {
                   vue.renderList($setup.categoryStats.slice(0, 4), (item, index) => {
                     return vue.openBlock(), vue.createElementBlock("view", {
                       key: item.key,
-                      class: "legend-item"
+                      class: "legend-item",
+                      onClick: ($event) => $setup.goCategoryDetail(item)
                     }, [
                       vue.createElementVNode(
                         "text",
@@ -1569,7 +1652,7 @@ if (uni.restoreGlobal) {
                           /* TEXT */
                         )
                       ])
-                    ]);
+                    ], 8, ["onClick"]);
                   }),
                   128
                   /* KEYED_FRAGMENT */
@@ -1586,7 +1669,8 @@ if (uni.restoreGlobal) {
                 vue.renderList($setup.categoryStats, (item) => {
                   return vue.openBlock(), vue.createElementBlock("view", {
                     key: item.key,
-                    class: "category-row"
+                    class: "category-row",
+                    onClick: ($event) => $setup.goCategoryDetail(item)
                   }, [
                     vue.createElementVNode("view", { class: "category-row-top" }, [
                       vue.createElementVNode("view", { class: "category-name" }, [
@@ -1641,7 +1725,7 @@ if (uni.restoreGlobal) {
                         /* TEXT */
                       )
                     ])
-                  ]);
+                  ], 8, ["onClick"]);
                 }),
                 128
                 /* KEYED_FRAGMENT */
@@ -1768,12 +1852,267 @@ if (uni.restoreGlobal) {
       /* STABLE_FRAGMENT */
     );
   }
-  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
+  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$6, [["render", _sfc_render$5], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
+  const _sfc_main$5 = {
+    __name: "category-transactions",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const categorySource = vue.ref("");
+      const categoryId = vue.ref("");
+      const categoryName = vue.ref("分类");
+      const startDate = vue.ref("");
+      const endDate = vue.ref("");
+      const valid = vue.ref(false);
+      const categories = vue.ref([]);
+      const transactions = vue.ref([]);
+      const loading = vue.ref(false);
+      let requestId = 0;
+      const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
+      const categoryMap = vue.computed(() => new Map(categories.value.map((item) => [`${item.source}:${item.id}`, item.name])));
+      const transactionGroups = vue.computed(() => {
+        const groups = /* @__PURE__ */ new Map();
+        transactions.value.forEach((item) => {
+          if (!groups.has(item.occurredOn))
+            groups.set(item.occurredOn, []);
+          groups.get(item.occurredOn).push(item);
+        });
+        return Array.from(groups, ([date, items]) => ({ date, items, label: formatDayLabel(date) }));
+      });
+      onLoad((options) => {
+        categorySource.value = options.categorySource || "";
+        categoryId.value = options.categoryId || "";
+        categoryName.value = options.name || "已删除分类";
+        startDate.value = options.startDate || "";
+        endDate.value = options.endDate || "";
+        valid.value = Boolean(categorySource.value && categoryId.value && startDate.value && endDate.value && startDate.value <= endDate.value);
+        if (!valid.value) {
+          uni.showToast({ title: "页面参数无效", icon: "none" });
+          return;
+        }
+        uni.setNavigationBarTitle({ title: `${categoryName.value}流水` });
+      });
+      onShow(() => {
+        if (valid.value)
+          load();
+      });
+      async function load() {
+        const currentRequest = ++requestId;
+        loading.value = true;
+        try {
+          const [categoryData, transactionData] = await Promise.all([
+            appApi.listCategories(),
+            appApi.listTransactions({ startDate: startDate.value, endDate: endDate.value })
+          ]);
+          if (currentRequest !== requestId)
+            return;
+          categories.value = categoryData;
+          transactions.value = transactionData.filter((item) => {
+            const source = item.categorySource || "CUSTOM";
+            const id = source === "SYSTEM" ? item.systemCategoryId : item.categoryId;
+            return source === categorySource.value && String(id) === String(categoryId.value);
+          });
+        } catch (error) {
+          if (currentRequest === requestId)
+            showRequestError(error);
+        } finally {
+          if (currentRequest === requestId)
+            loading.value = false;
+        }
+      }
+      function formatDayLabel(dateString) {
+        const year = Number(dateString.slice(0, 4));
+        const month = Number(dateString.slice(5, 7)) - 1;
+        const day = Number(dateString.slice(8, 10));
+        return `${month + 1}月${day}日 星期${weekdayLabels[new Date(year, month, day).getDay()]}`;
+      }
+      function resolveCategoryName(item) {
+        const id = item.categorySource === "SYSTEM" ? item.systemCategoryId : item.categoryId;
+        return categoryMap.value.get(`${item.categorySource || "CUSTOM"}:${id}`) || "分类已停用或删除";
+      }
+      function goEdit(item) {
+        uni.navigateTo({ url: `/pages/ledger/transaction-form?id=${item.id}` });
+      }
+      function remove2(item) {
+        uni.showModal({
+          title: "删除流水",
+          content: "删除后无法恢复，确定继续吗？",
+          success: async ({ confirm }) => {
+            if (!confirm)
+              return;
+            try {
+              await appApi.deleteTransaction(item.id);
+              await load();
+              uni.showToast({ title: "已删除", icon: "success" });
+            } catch (error) {
+              showRequestError(error);
+            }
+          }
+        });
+      }
+      const __returned__ = { categorySource, categoryId, categoryName, startDate, endDate, valid, categories, transactions, loading, get requestId() {
+        return requestId;
+      }, set requestId(v) {
+        requestId = v;
+      }, weekdayLabels, categoryMap, transactionGroups, load, formatDayLabel, resolveCategoryName, goEdit, remove: remove2, computed: vue.computed, ref: vue.ref, get onLoad() {
+        return onLoad;
+      }, get onShow() {
+        return onShow;
+      }, get appApi() {
+        return appApi;
+      }, get formatAmount() {
+        return formatAmount;
+      }, get showRequestError() {
+        return showRequestError;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$4(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
+      !$setup.valid ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "empty"
+      }, "页面参数无效")) : (vue.openBlock(), vue.createElementBlock(
+        vue.Fragment,
+        { key: 1 },
+        [
+          vue.createElementVNode("view", { class: "range-card" }, [
+            vue.createElementVNode("text", { class: "range-label" }, "统计区间"),
+            vue.createElementVNode(
+              "text",
+              { class: "range-value" },
+              vue.toDisplayString($setup.startDate) + " 至 " + vue.toDisplayString($setup.endDate),
+              1
+              /* TEXT */
+            )
+          ]),
+          vue.createElementVNode("view", { class: "list-title" }, [
+            vue.createTextVNode(
+              vue.toDisplayString($setup.categoryName) + "流水 ",
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode(
+              "text",
+              { class: "muted" },
+              vue.toDisplayString($setup.transactions.length) + " 笔",
+              1
+              /* TEXT */
+            )
+          ]),
+          $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 0,
+            class: "empty"
+          }, "加载中…")) : !$setup.transactions.length ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "empty"
+          }, "该分类在此时间段暂无流水")) : (vue.openBlock(), vue.createElementBlock("view", {
+            key: 2,
+            class: "day-groups"
+          }, [
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.transactionGroups, (group) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  key: group.date,
+                  class: "day-group"
+                }, [
+                  vue.createElementVNode("view", { class: "day-header" }, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "day-label" },
+                      vue.toDisplayString(group.label),
+                      1
+                      /* TEXT */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "day-date" },
+                      vue.toDisplayString(group.date),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  vue.createElementVNode("view", { class: "transaction-list" }, [
+                    (vue.openBlock(true), vue.createElementBlock(
+                      vue.Fragment,
+                      null,
+                      vue.renderList(group.items, (item) => {
+                        return vue.openBlock(), vue.createElementBlock("view", {
+                          key: item.id,
+                          class: "transaction-item",
+                          onClick: ($event) => $setup.goEdit(item)
+                        }, [
+                          vue.createElementVNode(
+                            "view",
+                            {
+                              class: vue.normalizeClass(["icon", item.transactionType === "INCOME" ? "income-bg" : "expense-bg"])
+                            },
+                            vue.toDisplayString(item.transactionType === "INCOME" ? "收" : "支"),
+                            3
+                            /* TEXT, CLASS */
+                          ),
+                          vue.createElementVNode("view", { class: "item-main" }, [
+                            vue.createElementVNode(
+                              "text",
+                              { class: "item-name" },
+                              vue.toDisplayString($setup.resolveCategoryName(item)),
+                              1
+                              /* TEXT */
+                            ),
+                            vue.createElementVNode(
+                              "text",
+                              { class: "item-note" },
+                              vue.toDisplayString(item.note || "暂无备注"),
+                              1
+                              /* TEXT */
+                            )
+                          ]),
+                          vue.createElementVNode("view", { class: "item-right" }, [
+                            vue.createElementVNode(
+                              "text",
+                              {
+                                class: vue.normalizeClass(item.transactionType === "INCOME" ? "income" : "expense")
+                              },
+                              vue.toDisplayString(item.transactionType === "INCOME" ? "+" : "-") + vue.toDisplayString($setup.formatAmount(item.amount)),
+                              3
+                              /* TEXT, CLASS */
+                            )
+                          ]),
+                          vue.createElementVNode("text", {
+                            class: "delete",
+                            onClick: vue.withModifiers(($event) => $setup.remove(item), ["stop"])
+                          }, "删除", 8, ["onClick"])
+                        ], 8, ["onClick"]);
+                      }),
+                      128
+                      /* KEYED_FRAGMENT */
+                    ))
+                  ])
+                ]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            ))
+          ]))
+        ],
+        64
+        /* STABLE_FRAGMENT */
+      ))
+    ]);
+  }
+  const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$5, [["render", _sfc_render$4], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
+  const CATEGORY_PAGE_SIZE = 16;
   const _sfc_main$4 = {
     __name: "transaction-form",
     setup(__props, { expose: __expose }) {
       __expose();
       const categories = vue.ref([]);
+      const currentCategoryPage = vue.ref(0);
+      const failedImageKeys = vue.ref(/* @__PURE__ */ new Set());
+      const editingId = vue.ref(null);
       const submitting = vue.ref(false);
       const calendarVisible = vue.ref(false);
       const calendarYear = vue.ref((/* @__PURE__ */ new Date()).getFullYear());
@@ -1800,6 +2139,10 @@ if (uni.restoreGlobal) {
         { label: "完成", action: "submit", className: "submit-key" }
       ];
       const filteredCategories = vue.computed(() => categories.value.filter((item) => item.transactionType === form.transactionType && (item.source !== "SYSTEM" || item.status === "ACTIVE")).map((item) => ({ ...item, label: `${item.name}${item.source === "SYSTEM" ? "（系统）" : "（自定义）"}` })));
+      const categoryPages = vue.computed(() => Array.from(
+        { length: Math.ceil(filteredCategories.value.length / CATEGORY_PAGE_SIZE) },
+        (_, index) => filteredCategories.value.slice(index * CATEGORY_PAGE_SIZE, (index + 1) * CATEGORY_PAGE_SIZE)
+      ));
       const displayAmount = vue.computed(() => amountExpression.value || "0.00");
       const calendarCells = vue.computed(() => {
         const firstWeekday = (new Date(calendarYear.value, calendarMonth.value, 1).getDay() + 6) % 7;
@@ -1810,9 +2153,28 @@ if (uni.restoreGlobal) {
       function goBack() {
         uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: "/pages/ledger/index" }) });
       }
-      async function load() {
+      async function load(options = {}) {
+        const id = Number(options.id);
+        const validId = Number.isInteger(id) && id > 0;
         try {
-          categories.value = await appApi.listCategories();
+          const [categoryData, transaction] = await Promise.all([
+            appApi.listCategories(),
+            validId ? appApi.getTransaction(id) : Promise.resolve(null)
+          ]);
+          categories.value = categoryData;
+          failedImageKeys.value = /* @__PURE__ */ new Set();
+          currentCategoryPage.value = 0;
+          if (!transaction)
+            return;
+          editingId.value = id;
+          Object.assign(form, {
+            categoryId: transaction.categorySource === "SYSTEM" ? transaction.systemCategoryId : transaction.categoryId,
+            categorySource: transaction.categorySource,
+            transactionType: transaction.transactionType,
+            occurredOn: transaction.occurredOn,
+            note: transaction.note || ""
+          });
+          amountExpression.value = Number(transaction.amount).toFixed(2);
         } catch (error) {
           showRequestError(error);
         }
@@ -1821,6 +2183,10 @@ if (uni.restoreGlobal) {
         form.transactionType = type;
         form.categoryId = null;
         form.categorySource = null;
+        currentCategoryPage.value = 0;
+      }
+      function onCategoryPageChange(event) {
+        currentCategoryPage.value = event.detail.current;
       }
       function selectCategory(item) {
         form.categoryId = item.id;
@@ -1828,6 +2194,15 @@ if (uni.restoreGlobal) {
       }
       function isSelectedCategory(item) {
         return item.id === form.categoryId && item.source === form.categorySource;
+      }
+      function categoryKey(item) {
+        return `${item.source}-${item.id}`;
+      }
+      function shouldShowImage(item) {
+        return Boolean(item.imageUrl) && !failedImageKeys.value.has(categoryKey(item));
+      }
+      function markImageLoadFailed(item) {
+        failedImageKeys.value = /* @__PURE__ */ new Set([...failedImageKeys.value, categoryKey(item)]);
       }
       function categoryIcon(name) {
         const icons = { 餐饮: "🍱", 购物: "🛍️", 日用: "🧻", 交通: "🚌", 蔬菜: "🥬", 水果: "🍎", 零食: "🧁", 运动: "🛼", 娱乐: "🎮", 通讯: "📞", 服饰: "👕", 美容: "🪞", 工资: "💰", 奖金: "🎁", 理财: "📈", 退款: "↩️" };
@@ -1919,8 +2294,12 @@ if (uni.restoreGlobal) {
         form.amount = calculatedAmount.toFixed(2);
         submitting.value = true;
         try {
-          await appApi.createTransaction({ ...form, amount: form.amount, note: form.note || null });
-          uni.showToast({ title: "已保存", icon: "success" });
+          const payload = { ...form, amount: form.amount, note: form.note || null };
+          if (editingId.value)
+            await appApi.updateTransaction(editingId.value, payload);
+          else
+            await appApi.createTransaction(payload);
+          uni.showToast({ title: editingId.value ? "已更新" : "已保存", icon: "success" });
           setTimeout(() => uni.navigateBack(), 450);
         } catch (error) {
           showRequestError(error);
@@ -1928,7 +2307,7 @@ if (uni.restoreGlobal) {
           submitting.value = false;
         }
       }
-      const __returned__ = { categories, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, weekdays, form, keypadKeys, filteredCategories, displayAmount, calendarCells, goBack, load, selectType, selectCategory, isSelectedCategory, categoryIcon, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
+      const __returned__ = { CATEGORY_PAGE_SIZE, categories, currentCategoryPage, failedImageKeys, editingId, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, weekdays, form, keypadKeys, filteredCategories, categoryPages, displayAmount, calendarCells, goBack, load, selectType, onCategoryPageChange, selectCategory, isSelectedCategory, categoryKey, shouldShowImage, markImageLoadFailed, categoryIcon, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
         return onLoad;
       }, get appApi() {
         return appApi;
@@ -1947,10 +2326,22 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", {
           class: "back-button",
           onClick: $setup.goBack
-        }, "‹"),
+        }),
         vue.createElementVNode("view", { class: "book-title" }, [
-          vue.createElementVNode("text", null, "默认账本"),
-          vue.createElementVNode("text", { class: "book-subtitle" }, "记录每一笔收支")
+          vue.createElementVNode(
+            "text",
+            null,
+            vue.toDisplayString($setup.editingId ? "编辑流水" : "默认账本"),
+            1
+            /* TEXT */
+          ),
+          vue.createElementVNode(
+            "text",
+            { class: "book-subtitle" },
+            vue.toDisplayString($setup.editingId ? "修改金额、备注或分类" : "记录每一笔收支"),
+            1
+            /* TEXT */
+          )
         ]),
         vue.createElementVNode("view", { class: "book-icon" }, "📋")
       ]),
@@ -1981,41 +2372,61 @@ if (uni.restoreGlobal) {
         )
       ]),
       vue.createElementVNode("view", { class: "category-section" }, [
-        $setup.filteredCategories.length ? (vue.openBlock(), vue.createElementBlock("view", {
+        $setup.categoryPages.length ? (vue.openBlock(), vue.createElementBlock("swiper", {
           key: 0,
-          class: "category-grid"
+          class: "category-swiper",
+          current: $setup.currentCategoryPage,
+          onChange: $setup.onCategoryPageChange
         }, [
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
-            vue.renderList($setup.filteredCategories, (item) => {
-              return vue.openBlock(), vue.createElementBlock("view", {
-                key: `${item.source}-${item.id}`,
-                class: vue.normalizeClass(["category-item", { selected: $setup.isSelectedCategory(item) }]),
-                onClick: ($event) => $setup.selectCategory(item)
-              }, [
-                vue.createElementVNode("view", { class: "category-icon" }, [
-                  vue.createElementVNode(
-                    "text",
+            vue.renderList($setup.categoryPages, (page, pageIndex) => {
+              return vue.openBlock(), vue.createElementBlock("swiper-item", { key: pageIndex }, [
+                vue.createElementVNode("view", { class: "category-grid" }, [
+                  (vue.openBlock(true), vue.createElementBlock(
+                    vue.Fragment,
                     null,
-                    vue.toDisplayString($setup.categoryIcon(item.name)),
-                    1
-                    /* TEXT */
-                  )
-                ]),
-                vue.createElementVNode(
-                  "text",
-                  { class: "category-name" },
-                  vue.toDisplayString(item.name),
-                  1
-                  /* TEXT */
-                )
-              ], 10, ["onClick"]);
+                    vue.renderList(page, (item) => {
+                      return vue.openBlock(), vue.createElementBlock("view", {
+                        key: `${item.source}-${item.id}`,
+                        class: vue.normalizeClass(["category-item", { selected: $setup.isSelectedCategory(item) }]),
+                        onClick: ($event) => $setup.selectCategory(item)
+                      }, [
+                        vue.createElementVNode("view", { class: "category-icon" }, [
+                          $setup.shouldShowImage(item) ? (vue.openBlock(), vue.createElementBlock("image", {
+                            key: 0,
+                            class: "category-image",
+                            src: item.imageUrl,
+                            mode: "aspectFill",
+                            onError: ($event) => $setup.markImageLoadFailed(item)
+                          }, null, 40, ["src", "onError"])) : (vue.openBlock(), vue.createElementBlock(
+                            "text",
+                            { key: 1 },
+                            vue.toDisplayString($setup.categoryIcon(item.name)),
+                            1
+                            /* TEXT */
+                          ))
+                        ]),
+                        vue.createElementVNode(
+                          "text",
+                          { class: "category-name" },
+                          vue.toDisplayString(item.name),
+                          1
+                          /* TEXT */
+                        )
+                      ], 10, ["onClick"]);
+                    }),
+                    128
+                    /* KEYED_FRAGMENT */
+                  ))
+                ])
+              ]);
             }),
             128
             /* KEYED_FRAGMENT */
           ))
-        ])) : (vue.openBlock(), vue.createElementBlock(
+        ], 40, ["current"])) : (vue.openBlock(), vue.createElementBlock(
           "view",
           {
             key: 1,
@@ -2025,16 +2436,32 @@ if (uni.restoreGlobal) {
           1
           /* TEXT */
         )),
-        vue.createElementVNode("view", { class: "category-dots" }, [
-          vue.createElementVNode("text", { class: "active-dot" }),
-          vue.createElementVNode("text"),
-          vue.createElementVNode("text"),
-          vue.createElementVNode("text")
-        ])
+        $setup.categoryPages.length > 1 ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 2,
+          class: "category-dots"
+        }, [
+          (vue.openBlock(true), vue.createElementBlock(
+            vue.Fragment,
+            null,
+            vue.renderList($setup.categoryPages, (_, index) => {
+              return vue.openBlock(), vue.createElementBlock(
+                "text",
+                {
+                  key: index,
+                  class: vue.normalizeClass({ "active-dot": $setup.currentCategoryPage === index })
+                },
+                null,
+                2
+                /* CLASS */
+              );
+            }),
+            128
+            /* KEYED_FRAGMENT */
+          ))
+        ])) : vue.createCommentVNode("v-if", true)
       ]),
       vue.createElementVNode("view", { class: "entry-panel" }, [
         vue.createElementVNode("view", { class: "entry-row" }, [
-          vue.createElementVNode("view", { class: "note-icon" }, "👛"),
           vue.withDirectives(vue.createElementVNode(
             "input",
             {
@@ -2074,7 +2501,7 @@ if (uni.restoreGlobal) {
                 key: key.label,
                 class: vue.normalizeClass(["key", key.className, { loading: key.action === "submit" && $setup.submitting }]),
                 onClick: ($event) => $setup.handleKey(key.action)
-              }, vue.toDisplayString(key.action === "submit" && $setup.submitting ? "保存中" : key.label), 11, ["onClick"]);
+              }, vue.toDisplayString(key.action === "submit" && $setup.submitting ? "保存中" : key.action === "submit" && $setup.editingId ? "保存修改" : key.label), 11, ["onClick"]);
             }),
             64
             /* STABLE_FRAGMENT */
@@ -2158,7 +2585,8 @@ if (uni.restoreGlobal) {
       __expose();
       const categories = vue.ref([]);
       const editingId = vue.ref(null);
-      const form = vue.reactive({ name: "", transactionType: "EXPENSE" });
+      const uploading = vue.ref(false);
+      const form = vue.reactive({ name: "", imageUrl: "", transactionType: "EXPENSE" });
       onShow(load);
       async function load() {
         try {
@@ -2173,9 +2601,35 @@ if (uni.restoreGlobal) {
       function customByType(type) {
         return categories.value.filter((item) => item.source === "CUSTOM" && item.transactionType === type);
       }
+      function chooseImage() {
+        uni.chooseImage({ count: 1, sizeType: ["compressed"], sourceType: ["album", "camera"], success: uploadImage2, fail: (error) => {
+          var _a;
+          if (!((_a = error.errMsg) == null ? void 0 : _a.includes("cancel")))
+            showRequestError(error);
+        } });
+      }
+      async function uploadImage2({ tempFilePaths }) {
+        const filePath = tempFilePaths == null ? void 0 : tempFilePaths[0];
+        if (!filePath)
+          return;
+        uploading.value = true;
+        try {
+          form.imageUrl = await appApi.uploadImage(filePath);
+          uni.showToast({ title: "图片上传成功", icon: "success" });
+        } catch (error) {
+          showRequestError(error);
+        } finally {
+          uploading.value = false;
+        }
+      }
+      function clearImage() {
+        form.imageUrl = "";
+      }
       async function save() {
         if (!form.name)
           return uni.showToast({ title: "请输入分类名称", icon: "none" });
+        if (uploading.value)
+          return uni.showToast({ title: "图片上传中，请稍候", icon: "none" });
         try {
           if (editingId.value)
             await appApi.updateCategory(editingId.value, form);
@@ -2191,11 +2645,13 @@ if (uni.restoreGlobal) {
       function edit(item) {
         editingId.value = item.id;
         form.name = item.name;
+        form.imageUrl = item.imageUrl || "";
         form.transactionType = item.transactionType;
       }
       function reset() {
         editingId.value = null;
         form.name = "";
+        form.imageUrl = "";
         form.transactionType = "EXPENSE";
       }
       function remove2(item) {
@@ -2211,7 +2667,7 @@ if (uni.restoreGlobal) {
           }
         } });
       }
-      const __returned__ = { categories, editingId, form, load, systemByType, customByType, save, edit, reset, remove: remove2, reactive: vue.reactive, ref: vue.ref, get onShow() {
+      const __returned__ = { categories, editingId, uploading, form, load, systemByType, customByType, chooseImage, uploadImage: uploadImage2, clearImage, save, edit, reset, remove: remove2, reactive: vue.reactive, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -2245,6 +2701,49 @@ if (uni.restoreGlobal) {
             { trim: true }
           ]
         ]),
+        vue.createElementVNode("view", { class: "image-upload-section" }, [
+          vue.createElementVNode("view", { class: "image-upload-heading" }, [
+            vue.createElementVNode("text", { class: "image-upload-title" }, "分类图标"),
+            vue.createElementVNode("text", { class: "image-upload-hint" }, "可选，可从相册选择或拍照")
+          ]),
+          vue.createElementVNode("view", { class: "image-upload-row" }, [
+            vue.createElementVNode("button", {
+              class: "image-upload-button",
+              disabled: $setup.uploading,
+              onClick: $setup.chooseImage
+            }, [
+              vue.createElementVNode("text", { class: "image-upload-icon" }, "＋"),
+              vue.createElementVNode(
+                "text",
+                null,
+                vue.toDisplayString($setup.uploading ? "图片上传中..." : $setup.form.imageUrl ? "更换图片" : "选择图片"),
+                1
+                /* TEXT */
+              )
+            ], 8, ["disabled"]),
+            $setup.form.imageUrl ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "image-preview-wrap"
+            }, [
+              vue.createElementVNode("image", {
+                class: "form-image-preview",
+                src: $setup.form.imageUrl,
+                mode: "aspectFill"
+              }, null, 8, ["src"])
+            ])) : (vue.openBlock(), vue.createElementBlock("view", {
+              key: 1,
+              class: "image-placeholder"
+            }, [
+              vue.createElementVNode("text", { class: "image-placeholder-icon" }, "图"),
+              vue.createElementVNode("text", { class: "image-placeholder-text" }, "未选择")
+            ])),
+            $setup.form.imageUrl && !$setup.uploading ? (vue.openBlock(), vue.createElementBlock("text", {
+              key: 2,
+              class: "clear-image",
+              onClick: $setup.clearImage
+            }, "移除")) : vue.createCommentVNode("v-if", true)
+          ])
+        ]),
         vue.createElementVNode("view", { class: "type-row" }, [
           vue.createElementVNode(
             "view",
@@ -2266,16 +2765,11 @@ if (uni.restoreGlobal) {
             2
             /* CLASS */
           ),
-          vue.createElementVNode(
-            "button",
-            {
-              class: "small-add",
-              onClick: $setup.save
-            },
-            vue.toDisplayString($setup.editingId ? "更新" : "添加"),
-            1
-            /* TEXT */
-          )
+          vue.createElementVNode("button", {
+            class: "small-add",
+            disabled: $setup.uploading,
+            onClick: $setup.save
+          }, vue.toDisplayString($setup.editingId ? "更新" : "添加"), 9, ["disabled"])
         ])
       ]),
       (vue.openBlock(), vue.createElementBlock(
@@ -2302,13 +2796,21 @@ if (uni.restoreGlobal) {
                     key: `system-${item.id}`,
                     class: "category-item"
                   }, [
-                    vue.createElementVNode(
-                      "text",
-                      null,
-                      vue.toDisplayString(item.name),
-                      1
-                      /* TEXT */
-                    ),
+                    vue.createElementVNode("view", { class: "category-main" }, [
+                      item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
+                        key: 0,
+                        class: "category-thumbnail",
+                        src: item.imageUrl,
+                        mode: "aspectFill"
+                      }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                      vue.createElementVNode(
+                        "text",
+                        null,
+                        vue.toDisplayString(item.name),
+                        1
+                        /* TEXT */
+                      )
+                    ]),
                     vue.createElementVNode(
                       "text",
                       {
@@ -2357,13 +2859,21 @@ if (uni.restoreGlobal) {
                     key: `custom-${item.id}`,
                     class: "category-item"
                   }, [
-                    vue.createElementVNode(
-                      "text",
-                      null,
-                      vue.toDisplayString(item.name),
-                      1
-                      /* TEXT */
-                    ),
+                    vue.createElementVNode("view", { class: "category-main" }, [
+                      item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
+                        key: 0,
+                        class: "category-thumbnail",
+                        src: item.imageUrl,
+                        mode: "aspectFill"
+                      }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                      vue.createElementVNode(
+                        "text",
+                        null,
+                        vue.toDisplayString(item.name),
+                        1
+                        /* TEXT */
+                      )
+                    ]),
                     vue.createElementVNode("view", null, [
                       vue.createElementVNode("text", {
                         class: "edit",
@@ -2402,6 +2912,8 @@ if (uni.restoreGlobal) {
       const sending = vue.ref(false);
       const bottomId = vue.ref("chat-bottom");
       const sessionId = vue.ref("");
+      const conversations = vue.ref([]);
+      const conversationListVisible = vue.ref(false);
       const userAvatarFailed = vue.ref(false);
       const userAvatar = vue.computed(() => {
         var _a;
@@ -2411,22 +2923,69 @@ if (uni.restoreGlobal) {
         var _a;
         return (((_a = authStore.profile) == null ? void 0 : _a.username) || "我").slice(0, 1).toUpperCase();
       });
-      onShow(loadHistory);
+      const activeConversationTitle = vue.computed(() => {
+        var _a;
+        return ((_a = conversations.value.find((conversation) => conversation.sessionId === sessionId.value)) == null ? void 0 : _a.title) || "新对话";
+      });
+      onShow(async () => {
+        ensureSession2();
+        await Promise.all([loadConversations(), loadHistory()]);
+      });
       function isUserMessage(item) {
         return item.role === "USER" || item.role === "user";
       }
+      function createSessionId() {
+        return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
+      }
       function ensureSession2() {
-        sessionId.value = uni.getStorageSync(SESSION_KEY) || `chat_${Date.now()}`;
+        sessionId.value = uni.getStorageSync(SESSION_KEY) || createSessionId();
         uni.setStorageSync(SESSION_KEY, sessionId.value);
       }
+      async function loadConversations(showError = true) {
+        try {
+          conversations.value = await appApi.listChatConversations();
+        } catch (error) {
+          if (showError)
+            showRequestError(error);
+        }
+      }
       async function loadHistory() {
-        ensureSession2();
         try {
           messages.value = await appApi.chatHistory(sessionId.value);
           scrollBottom();
         } catch (error) {
           showRequestError(error);
         }
+      }
+      async function openConversationList() {
+        if (sending.value)
+          return;
+        conversationListVisible.value = true;
+        await loadConversations();
+      }
+      function closeConversationList() {
+        conversationListVisible.value = false;
+      }
+      function newConversation() {
+        if (sending.value)
+          return;
+        sessionId.value = createSessionId();
+        uni.setStorageSync(SESSION_KEY, sessionId.value);
+        messages.value = [];
+        input.value = "";
+        conversationListVisible.value = false;
+        scrollBottom();
+      }
+      async function selectConversation(selectedSessionId) {
+        if (sending.value || selectedSessionId === sessionId.value) {
+          conversationListVisible.value = false;
+          return;
+        }
+        sessionId.value = selectedSessionId;
+        uni.setStorageSync(SESSION_KEY, selectedSessionId);
+        messages.value = [];
+        conversationListVisible.value = false;
+        await loadHistory();
       }
       async function send() {
         const message = input.value.trim();
@@ -2452,8 +3011,12 @@ if (uni.restoreGlobal) {
         } finally {
           assistantMessage.streaming = false;
           sending.value = false;
+          await loadConversations(false);
           scrollBottom();
         }
+      }
+      function formatConversationTime(value) {
+        return value ? value.replace("T", " ").slice(0, 16) : "";
       }
       function scrollBottom() {
         vue.nextTick(() => {
@@ -2463,7 +3026,7 @@ if (uni.restoreGlobal) {
           }, 20);
         });
       }
-      const __returned__ = { SESSION_KEY, messages, input, sending, bottomId, sessionId, userAvatarFailed, userAvatar, userInitial, isUserMessage, ensureSession: ensureSession2, loadHistory, send, scrollBottom, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
+      const __returned__ = { SESSION_KEY, messages, input, sending, bottomId, sessionId, conversations, conversationListVisible, userAvatarFailed, userAvatar, userInitial, activeConversationTitle, isUserMessage, createSessionId, ensureSession: ensureSession2, loadConversations, loadHistory, openConversationList, closeConversationList, newConversation, selectConversation, send, formatConversationTime, scrollBottom, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -2478,6 +3041,32 @@ if (uni.restoreGlobal) {
   };
   function _sfc_render$1(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "chat-page" }, [
+      vue.createElementVNode("view", { class: "chat-header" }, [
+        vue.createElementVNode("view", { class: "conversation-trigger" }, [
+          vue.createElementVNode("text", { class: "conversation-label" }, "当前对话"),
+          vue.createElementVNode(
+            "text",
+            { class: "conversation-title" },
+            vue.toDisplayString($setup.activeConversationTitle),
+            1
+            /* TEXT */
+          )
+        ]),
+        vue.createElementVNode("view", { style: { "display": "flex", "align-items": "center", "gap": "12rpx" } }, [
+          vue.createElementVNode("button", {
+            class: "new-conversation",
+            disabled: $setup.sending,
+            onClick: $setup.newConversation
+          }, "新对话", 8, ["disabled"]),
+          vue.createElementVNode("button", {
+            class: "new-conversation",
+            style: { "width": "62rpx", "padding": "0" },
+            disabled: $setup.sending,
+            "aria-label": "历史对话",
+            onClick: $setup.openConversationList
+          }, "🕘", 8, ["disabled"])
+        ])
+      ]),
       vue.createElementVNode("scroll-view", {
         class: "messages",
         "scroll-y": "",
@@ -2585,7 +3174,74 @@ if (uni.restoreGlobal) {
           loading: $setup.sending,
           onClick: $setup.send
         }, "发送", 10, ["disabled", "loading"])
-      ])
+      ]),
+      $setup.conversationListVisible ? (vue.openBlock(), vue.createElementBlock("view", {
+        key: 0,
+        class: "conversation-mask",
+        onClick: $setup.closeConversationList
+      }, [
+        vue.createElementVNode("view", {
+          class: "conversation-panel",
+          onClick: _cache[2] || (_cache[2] = vue.withModifiers(() => {
+          }, ["stop"]))
+        }, [
+          vue.createElementVNode("view", { class: "conversation-panel-header" }, [
+            vue.createElementVNode("text", { class: "conversation-panel-title" }, "历史对话"),
+            vue.createElementVNode("text", {
+              class: "conversation-close",
+              onClick: $setup.closeConversationList
+            }, "关闭")
+          ]),
+          vue.createElementVNode("button", {
+            class: "conversation-create",
+            disabled: $setup.sending,
+            onClick: $setup.newConversation
+          }, "开启新对话", 8, ["disabled"]),
+          vue.createElementVNode("scroll-view", {
+            class: "conversation-list",
+            "scroll-y": ""
+          }, [
+            !$setup.conversations.length ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "conversation-empty"
+            }, "还没有历史对话，发送第一条消息后会显示在这里。")) : vue.createCommentVNode("v-if", true),
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.conversations, (conversation) => {
+                return vue.openBlock(), vue.createElementBlock("view", {
+                  key: conversation.sessionId,
+                  class: vue.normalizeClass(["conversation-item", { active: conversation.sessionId === $setup.sessionId }]),
+                  onClick: ($event) => $setup.selectConversation(conversation.sessionId)
+                }, [
+                  vue.createElementVNode("view", { class: "conversation-item-main" }, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "conversation-item-title" },
+                      vue.toDisplayString(conversation.title),
+                      1
+                      /* TEXT */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "conversation-item-time" },
+                      vue.toDisplayString($setup.formatConversationTime(conversation.updatedAt)),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
+                  conversation.sessionId === $setup.sessionId ? (vue.openBlock(), vue.createElementBlock("text", {
+                    key: 0,
+                    class: "conversation-active-mark"
+                  }, "当前")) : vue.createCommentVNode("v-if", true)
+                ], 10, ["onClick"]);
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            ))
+          ])
+        ])
+      ])) : vue.createCommentVNode("v-if", true)
     ]);
   }
   const PagesChatIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2, [["render", _sfc_render$1], ["__scopeId", "data-v-da04a0a0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/chat/index.vue"]]);
@@ -2997,6 +3653,7 @@ if (uni.restoreGlobal) {
   __definePage("pages/auth/register", PagesAuthRegister);
   __definePage("pages/ledger/index", PagesLedgerIndex);
   __definePage("pages/ledger/expense-statistics", PagesLedgerExpenseStatistics);
+  __definePage("pages/ledger/category-transactions", PagesLedgerCategoryTransactions);
   __definePage("pages/ledger/transaction-form", PagesLedgerTransactionForm);
   __definePage("pages/ledger/categories", PagesLedgerCategories);
   __definePage("pages/chat/index", PagesChatIndex);
@@ -3004,6 +3661,8 @@ if (uni.restoreGlobal) {
   const _sfc_main = {
     onLaunch() {
       authStore.restore();
+      if (authStore.token)
+        uni.switchTab({ url: "/pages/ledger/index" });
     }
   };
   const App = /* @__PURE__ */ _export_sfc(_sfc_main, [["__file", "D:/code/mechiBookkeeping/frontend/src/App.vue"]]);
@@ -3703,7 +4362,7 @@ if (uni.restoreGlobal) {
       return titleMapCache;
     titleMapCache = {};
     try {
-      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的"}';
+      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/category-transactions":"分类流水","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的"}';
       if (typeof raw !== "string" || !raw)
         ;
       const parsed = JSON.parse(raw);

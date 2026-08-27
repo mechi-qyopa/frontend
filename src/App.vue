@@ -4,6 +4,7 @@ import { authStore } from './stores/auth'
 export default {
   onLaunch() {
     authStore.restore()
+    if (authStore.token) uni.switchTab({ url: '/pages/ledger/index' })
   }
 }
 </script>

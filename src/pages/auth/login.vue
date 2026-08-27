@@ -1,13 +1,15 @@
 <template>
   <view class="auth-page">
-    <view class="hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
-    <view class="form-card">
-      <text class="title">欢迎回来</text>
-      <input v-model.trim="form.username" class="input" placeholder="用户名" maxlength="32" />
-      <input v-model="form.password" class="input form-space" placeholder="密码" password maxlength="72" />
-      <button class="primary-button submit" :loading="submitting" @click="submit">登录</button>
-      <view class="footer-text">还没有账号？<text class="link" @click="goRegister">立即注册</text></view>
-    </view>
+    <template v-if="loginReady">
+      <view class="hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
+      <view class="form-card">
+        <text class="title">欢迎回来</text>
+        <input v-model.trim="form.username" class="input" placeholder="用户名" maxlength="32" />
+        <input v-model="form.password" class="input form-space" placeholder="密码" password maxlength="72" />
+        <button class="primary-button submit" :loading="submitting" @click="submit">登录</button>
+        <view class="footer-text">还没有账号？<text class="link" @click="goRegister">立即注册</text></view>
+      </view>
+    </template>
   </view>
 </template>
 
@@ -20,9 +22,14 @@ import { showRequestError } from '../../utils/request'
 
 const form = reactive({ username: '', password: '' })
 const submitting = ref(false)
+const loginReady = ref(false)
 
 onShow(() => {
-  if (authStore.token) uni.switchTab({ url: '/pages/ledger/index' })
+  if (authStore.token) {
+    uni.switchTab({ url: '/pages/ledger/index' })
+    return
+  }
+  loginReady.value = true
 })
 
 async function submit() {

@@ -4,6 +4,7 @@
     { "path": "pages/auth/register", "style": { "navigationBarTitleText": "注册", "navigationStyle": "custom" } },
     { "path": "pages/ledger/index", "style": { "navigationBarTitleText": "账本" } },
     { "path": "pages/ledger/expense-statistics", "style": { "navigationBarTitleText": "费用统计" } },
+    { "path": "pages/ledger/category-transactions", "style": { "navigationBarTitleText": "分类流水" } },
     { "path": "pages/ledger/transaction-form", "style": { "navigationBarTitleText": "新增流水", "navigationStyle": "custom" } },
     { "path": "pages/ledger/categories", "style": { "navigationBarTitleText": "收支分类" } },
     { "path": "pages/chat/index", "style": { "navigationBarTitleText": "AI 助手" } },
@@ -14,11 +15,14 @@
     "selectedColor": "#1677ff",
     "backgroundColor": "#ffffff",
     "borderStyle": "white",
+    "fontSize": "12px",
+    "iconWidth": "28px",
+    "height": "56px",
     "list": [
-      { "pagePath": "pages/ledger/index", "text": "账本", "iconPath": "static/tabbar/ledger.svg", "selectedIconPath": "static/tabbar/ledger-active.svg" },
-      { "pagePath": "pages/ledger/expense-statistics", "text": "统计", "iconPath": "static/tabbar/statistics.svg", "selectedIconPath": "static/tabbar/statistics-active.svg" },
-      { "pagePath": "pages/chat/index", "text": "助手", "iconPath": "static/tabbar/assistant.svg", "selectedIconPath": "static/tabbar/assistant-active.svg" },
-      { "pagePath": "pages/profile/index", "text": "我的", "iconPath": "static/tabbar/profile.svg", "selectedIconPath": "static/tabbar/profile-active.svg" }
+      { "pagePath": "pages/ledger/index", "text": "账本", "iconPath": "static/tabbar/ledger.png", "selectedIconPath": "static/tabbar/ledger-active.png" },
+      { "pagePath": "pages/ledger/expense-statistics", "text": "统计", "iconPath": "static/tabbar/statistics.png", "selectedIconPath": "static/tabbar/statistics-active.png" },
+      { "pagePath": "pages/chat/index", "text": "助手", "iconPath": "static/tabbar/assistant.png", "selectedIconPath": "static/tabbar/assistant-active.png" },
+      { "pagePath": "pages/profile/index", "text": "我的", "iconPath": "static/tabbar/profile.png", "selectedIconPath": "static/tabbar/profile-active.png" }
     ]
   },
   "globalStyle": {

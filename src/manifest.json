@@ -9,6 +9,9 @@
     "app-plus" : {
         "usingComponents" : true,
         "distribute" : {
+            "android" : {
+                "usesCleartextTraffic" : true
+            },
             "ios" : {
                 "dSYMs" : false
             }

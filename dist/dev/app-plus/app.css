@@ -19,3 +19,7 @@ uni-button { border-radius: 0.5rem;
 }
 .empty { padding: 2.8125rem 0.75rem; color: #98a2b3; text-align: center;
 }
+
+/* H5 使用 Uni 内置 tabBar，此选择器需覆盖运行时写入的 10px 内联字号。 */
+.uni-tabbar__label { font-size: 16px !important; line-height: 1.5 !important;
+}

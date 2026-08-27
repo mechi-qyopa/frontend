@@ -78,9 +78,9 @@
     },
     "tabBar": {
       "position": "bottom",
-      "color": "#7c8799",
+      "color": "#8b95a7",
       "selectedColor": "#1677ff",
-      "borderStyle": "rgba(0,0,0,0.4)",
+      "borderStyle": "rgba(255,255,255,0.4)",
       "blurEffect": "none",
       "fontSize": "10px",
       "iconWidth": "24px",
@@ -89,15 +89,27 @@
       "list": [
         {
           "pagePath": "pages/ledger/index",
-          "text": "账本"
+          "text": "账本",
+          "iconPath": "/static/tabbar/ledger.svg",
+          "selectedIconPath": "/static/tabbar/ledger-active.svg"
+        },
+        {
+          "pagePath": "pages/ledger/expense-statistics",
+          "text": "统计",
+          "iconPath": "/static/tabbar/statistics.svg",
+          "selectedIconPath": "/static/tabbar/statistics-active.svg"
         },
         {
           "pagePath": "pages/chat/index",
-          "text": "助手"
+          "text": "助手",
+          "iconPath": "/static/tabbar/assistant.svg",
+          "selectedIconPath": "/static/tabbar/assistant-active.svg"
         },
         {
           "pagePath": "pages/profile/index",
-          "text": "我的"
+          "text": "我的",
+          "iconPath": "/static/tabbar/profile.svg",
+          "selectedIconPath": "/static/tabbar/profile-active.svg"
         }
       ],
       "backgroundColor": "#ffffff",
