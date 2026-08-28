@@ -210,12 +210,134 @@ if (uni.restoreGlobal) {
     });
     return remainder;
   }
+  function createChunkDecoder() {
+    let pending2 = new Uint8Array(0);
+    const concat = (a2, b2) => {
+      const out = new Uint8Array(a2.length + b2.length);
+      out.set(a2);
+      out.set(b2, a2.length);
+      return out;
+    };
+    return (chunk) => {
+      const incoming = chunk instanceof ArrayBuffer ? new Uint8Array(chunk) : new Uint8Array(chunk.buffer || chunk);
+      const all = concat(pending2, incoming);
+      let end = all.length;
+      for (let i2 = all.length - 1; i2 >= 0 && i2 >= all.length - 4; i2--) {
+        if ((all[i2] & 192) !== 128) {
+          const seqLen = all[i2] < 128 ? 1 : all[i2] < 224 ? 2 : all[i2] < 240 ? 3 : 4;
+          if (i2 + seqLen > all.length)
+            end = i2;
+          break;
+        }
+      }
+      pending2 = all.slice(end);
+      const bytes = all.slice(0, end);
+      let out = "";
+      for (let i2 = 0; i2 < bytes.length; ) {
+        const b2 = bytes[i2];
+        if (b2 < 128) {
+          out += String.fromCharCode(b2);
+          i2 += 1;
+        } else if (b2 < 224) {
+          out += String.fromCharCode((b2 & 31) << 6 | bytes[i2 + 1] & 63);
+          i2 += 2;
+        } else if (b2 < 240) {
+          out += String.fromCharCode((b2 & 15) << 12 | (bytes[i2 + 1] & 63) << 6 | bytes[i2 + 2] & 63);
+          i2 += 3;
+        } else {
+          out += String.fromCodePoint((b2 & 7) << 18 | (bytes[i2 + 1] & 63) << 12 | (bytes[i2 + 2] & 63) << 6 | bytes[i2 + 3] & 63);
+          i2 += 4;
+        }
+      }
+      return out;
+    };
+  }
+  function streamChatNative(data, onToken) {
+    return new Promise((resolve, reject) => {
+      let buffer = "";
+      let headerStatus = 0;
+      let chunked = false;
+      let settled = false;
+      const finish = (fn, value2) => {
+        if (!settled) {
+          settled = true;
+          fn(value2);
+        }
+      };
+      const failWith = (message) => finish(reject, new Error(message));
+      const consumeAll = (text) => {
+        buffer += text;
+        buffer = consumeSseEvents(`${buffer}
+
+`, onToken);
+        buffer = "";
+      };
+      const decode = createChunkDecoder();
+      const task = uni.request({
+        url: `${API_BASE_URL}/api/v1/app/chat/stream`,
+        method: "POST",
+        enableChunked: true,
+        dataType: "text",
+        timeout: 12e4,
+        header: {
+          Accept: "text/event-stream",
+          "Content-Type": "application/json",
+          ...authStore.token ? { "X-App-Token": authStore.token } : {}
+        },
+        data,
+        success: (res) => {
+          if (res.statusCode === 401) {
+            failWith("UNAUTHORIZED");
+            return;
+          }
+          if (res.statusCode !== 200) {
+            failWith(typeof res.data === "string" && res.data ? res.data : `流式请求失败(${res.statusCode})`);
+            return;
+          }
+          if (!chunked && buffer.length === 0 && typeof res.data === "string" && res.data)
+            consumeAll(res.data);
+          else if (buffer.trim())
+            consumeSseEvents(`${buffer}
+
+`, onToken);
+          finish(resolve);
+        },
+        fail: (error2) => failWith(headerStatus === 401 ? "UNAUTHORIZED" : (error2 == null ? void 0 : error2.errMsg) || "流式请求失败")
+      });
+      if (typeof (task == null ? void 0 : task.onChunkReceived) === "function") {
+        if (typeof task.onHeadersReceived === "function") {
+          task.onHeadersReceived(({ statusCode }) => {
+            headerStatus = statusCode;
+            if (statusCode === 401)
+              task.abort();
+          });
+        }
+        task.onChunkReceived(({ data: chunk }) => {
+          if (headerStatus && headerStatus !== 200)
+            return;
+          chunked = true;
+          buffer += decode(chunk);
+          buffer = consumeSseEvents(buffer, onToken);
+        });
+      }
+    });
+  }
   async function streamChat(data, onToken, retried = false) {
     if (typeof fetch !== "function") {
-      const response2 = await request({ url: "/api/v1/app/chat", method: "POST", data });
-      if (!response2.success)
-        throw new Error(response2.error || "暂时无法回复");
-      onToken(response2.reply);
+      try {
+        await streamChatNative(data, onToken);
+      } catch (error2) {
+        if ((error2 == null ? void 0 : error2.message) === "UNAUTHORIZED" && !retried) {
+          try {
+            await refreshAccessToken();
+            return streamChat(data, onToken, true);
+          } catch (refreshError) {
+            redirectToLogin();
+            throw refreshError;
+          }
+        }
+        throw error2;
+      }
       return;
     }
     const response = await fetch(`${API_BASE_URL}/api/v1/app/chat/stream`, {
@@ -331,7 +453,7 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const _sfc_main$2k = {
+  const _sfc_main$2l = {
     __name: "login",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -375,7 +497,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2j(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2k(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
       $setup.loginReady ? (vue.openBlock(), vue.createElementBlock(
         vue.Fragment,
@@ -440,8 +562,8 @@ if (uni.restoreGlobal) {
       )) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$2k, [["render", _sfc_render$2j], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
-  const _sfc_main$2j = {
+  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$2l, [["render", _sfc_render$2k], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
+  const _sfc_main$2k = {
     __name: "register",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -480,7 +602,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2i(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2j(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
       vue.createElementVNode("view", { class: "hero" }, [
         vue.createElementVNode("text", { class: "brand" }, "创建账号"),
@@ -566,7 +688,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$2j, [["render", _sfc_render$2i], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
+  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$2k, [["render", _sfc_render$2j], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
   const icons = {
     "uicon-level": "",
     "uicon-column-line": "",
@@ -4662,7 +4784,7 @@ if (uni.restoreGlobal) {
       setConfig$1(temp.options);
     }
   }
-  const props$R = defineMixin({
+  const props$1w = defineMixin({
     props: {
       // 图标类名
       name: {
@@ -5017,7 +5139,7 @@ if (uni.restoreGlobal) {
     params,
     loadFont
   };
-  const _sfc_main$2i = {
+  const _sfc_main$2j = {
     name: "u-icon",
     beforeCreate() {
       if (!fontUtil.params.loaded) {
@@ -5028,7 +5150,7 @@ if (uni.restoreGlobal) {
       return {};
     },
     emits: ["click"],
-    mixins: [mpMixin, mixin, props$R],
+    mixins: [mpMixin, mixin, props$1w],
     computed: {
       uClasses() {
         let classes = [];
@@ -5085,7 +5207,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$2h(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2i(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -5128,7 +5250,7 @@ if (uni.restoreGlobal) {
       /* CLASS */
     );
   }
-  const __easycom_0$f = /* @__PURE__ */ _export_sfc(_sfc_main$2i, [["render", _sfc_render$2h], ["__scopeId", "data-v-1c933a9a"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-icon/u-icon.vue"]]);
+  const __easycom_0$f = /* @__PURE__ */ _export_sfc(_sfc_main$2j, [["render", _sfc_render$2i], ["__scopeId", "data-v-1c933a9a"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-icon/u-icon.vue"]]);
   const __vite_glob_0_47 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_0$f
@@ -5356,7 +5478,7 @@ if (uni.restoreGlobal) {
       applyStatusBar(this.currentTheme);
     }
   });
-  const _sfc_main$2h = {
+  const _sfc_main$2i = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5413,7 +5535,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2g(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2h(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_u_icon = resolveEasycom(vue.resolveDynamicComponent("u-icon"), __easycom_0$f);
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -5455,8 +5577,8 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$2h, [["render", _sfc_render$2g], ["__scopeId", "data-v-3ac3557a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/custom-tab-bar/index.vue"]]);
-  const _sfc_main$2g = {
+  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$2i, [["render", _sfc_render$2h], ["__scopeId", "data-v-3ac3557a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/custom-tab-bar/index.vue"]]);
+  const _sfc_main$2h = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5623,7 +5745,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2f(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2g(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_u_icon = resolveEasycom(vue.resolveDynamicComponent("u-icon"), __easycom_0$f);
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -5919,8 +6041,8 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2g, [["render", _sfc_render$2f], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
-  const _sfc_main$2f = {
+  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2h, [["render", _sfc_render$2g], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
+  const _sfc_main$2g = {
     __name: "expense-statistics",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6249,7 +6371,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2e(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2f(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       vue.Fragment,
       null,
@@ -6759,8 +6881,8 @@ if (uni.restoreGlobal) {
       /* STABLE_FRAGMENT */
     );
   }
-  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$2f, [["render", _sfc_render$2e], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
-  const _sfc_main$2e = {
+  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$2g, [["render", _sfc_render$2f], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
+  const _sfc_main$2f = {
     __name: "category-transactions",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6875,7 +6997,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2d(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2e(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
       !$setup.valid ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -7010,9 +7132,9 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$2e, [["render", _sfc_render$2d], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
+  const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$2f, [["render", _sfc_render$2e], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
   const CATEGORY_PAGE_SIZE = 16;
-  const _sfc_main$2d = {
+  const _sfc_main$2e = {
     __name: "transaction-form",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7229,7 +7351,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2c(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2d(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -7496,8 +7618,8 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const PagesLedgerTransactionForm = /* @__PURE__ */ _export_sfc(_sfc_main$2d, [["render", _sfc_render$2c], ["__scopeId", "data-v-ef724408"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/transaction-form.vue"]]);
-  const _sfc_main$2c = {
+  const PagesLedgerTransactionForm = /* @__PURE__ */ _export_sfc(_sfc_main$2e, [["render", _sfc_render$2d], ["__scopeId", "data-v-ef724408"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/transaction-form.vue"]]);
+  const _sfc_main$2d = {
     __name: "categories",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7596,7 +7718,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2b(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2c(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
       vue.createElementVNode("view", { class: "card form" }, [
         vue.createElementVNode("text", { class: "form-title" }, "我的自定义分类"),
@@ -7819,7 +7941,39 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const PagesLedgerCategories = /* @__PURE__ */ _export_sfc(_sfc_main$2c, [["render", _sfc_render$2b], ["__scopeId", "data-v-eb3d6ed0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/categories.vue"]]);
+  const PagesLedgerCategories = /* @__PURE__ */ _export_sfc(_sfc_main$2d, [["render", _sfc_render$2c], ["__scopeId", "data-v-eb3d6ed0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/categories.vue"]]);
+  const block0$3 = (Comp) => {
+    (Comp.$renderjs || (Comp.$renderjs = [])).push("sseBridge");
+    (Comp.$renderjsModules || (Comp.$renderjsModules = {}))["sseBridge"] = "18eb3192";
+  };
+  const _sfc_main$2c = {
+    props: {
+      request: { type: String, default: "" }
+    },
+    emits: ["token", "done", "error"],
+    methods: {
+      onStreamToken(token) {
+        if (token)
+          this.$emit("token", token);
+      },
+      onStreamDone() {
+        this.$emit("done");
+      },
+      onStreamError(message) {
+        this.$emit("error", message);
+      }
+    }
+  };
+  function _sfc_render$2b(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock("view", {
+      class: "sse-bridge",
+      request: vue.wp($props.request),
+      "change:request": _ctx.sseBridge.onRequest
+    }, null, 8, ["request", "change:request"]);
+  }
+  if (typeof block0$3 === "function")
+    block0$3(_sfc_main$2c);
+  const SseBridge = /* @__PURE__ */ _export_sfc(_sfc_main$2c, [["render", _sfc_render$2b], ["__scopeId", "data-v-f13260f0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/sse-bridge/index.vue"]]);
   const SESSION_KEY = "mechi_chat_session_id";
   const _sfc_main$2b = {
     __name: "index",
@@ -7922,12 +8076,7 @@ if (uni.restoreGlobal) {
         scrollBottom();
         sending.value = true;
         try {
-          await appApi.streamChat({ message, sessionId: sessionId.value }, (token) => {
-            if (token.startsWith("[ERROR]"))
-              throw new Error(token.replace(/^\[ERROR\]\s*/, ""));
-            assistantMessage.content += token;
-            scrollBottom();
-          });
+          await sendViaAppStream(message, assistantMessage);
         } catch (error2) {
           if (!assistantMessage.content)
             messages2.value.pop();
@@ -7950,17 +8099,78 @@ if (uni.restoreGlobal) {
           }, 20);
         });
       }
-      const __returned__ = { SESSION_KEY, messages: messages2, input, sending, bottomId, sessionId, conversations, conversationListVisible, userAvatarFailed, userAvatar, userInitial, activeConversationTitle, windowWidth: windowWidth2, windowHeight, safeAreaInsets, fallbackTabBarPx, appChatStyle, isUserMessage, createSessionId, ensureSession: ensureSession2, loadConversations, loadHistory, openConversationList, closeConversationList, newConversation, selectConversation, send, formatConversationTime, scrollBottom, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
+      const sseRequestJson = vue.ref("");
+      let sseSequence = 0;
+      let activeSse = null;
+      function sendViaAppStream(message, assistantMessage, retried = false) {
+        return new Promise((resolve, reject) => {
+          activeSse = { assistantMessage, resolve, reject, finished: false };
+          sseSequence += 1;
+          sseRequestJson.value = JSON.stringify({
+            id: sseSequence,
+            url: `${API_BASE_URL}/api/v1/app/chat/stream`,
+            token: authStore.token || "",
+            body: { message, sessionId: sessionId.value }
+          });
+        }).catch(async (error2) => {
+          if ((error2 == null ? void 0 : error2.message) === "UNAUTHORIZED" && !retried) {
+            try {
+              await refreshAccessToken();
+            } catch (refreshError) {
+              redirectToLogin();
+              throw error2;
+            }
+            return sendViaAppStream(message, assistantMessage, true);
+          }
+          throw error2;
+        });
+      }
+      function onStreamToken(token) {
+        const active = activeSse;
+        if (!active || active.finished || !token)
+          return;
+        active.assistantMessage.content += token;
+        scrollBottom();
+      }
+      function onStreamDone() {
+        const active = activeSse;
+        if (!active || active.finished)
+          return;
+        active.finished = true;
+        active.resolve();
+      }
+      function onStreamError(message) {
+        const active = activeSse;
+        if (!active || active.finished)
+          return;
+        active.finished = true;
+        active.reject(new Error(message || "对话请求失败"));
+      }
+      const __returned__ = { SESSION_KEY, messages: messages2, input, sending, bottomId, sessionId, conversations, conversationListVisible, userAvatarFailed, userAvatar, userInitial, activeConversationTitle, windowWidth: windowWidth2, windowHeight, safeAreaInsets, fallbackTabBarPx, appChatStyle, isUserMessage, createSessionId, ensureSession: ensureSession2, loadConversations, loadHistory, openConversationList, closeConversationList, newConversation, selectConversation, send, formatConversationTime, scrollBottom, sseRequestJson, get sseSequence() {
+        return sseSequence;
+      }, set sseSequence(v2) {
+        sseSequence = v2;
+      }, get activeSse() {
+        return activeSse;
+      }, set activeSse(v2) {
+        activeSse = v2;
+      }, sendViaAppStream, onStreamToken, onStreamDone, onStreamError, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
       }, get authStore() {
         return authStore;
-      }, get showRequestError() {
-        return showRequestError;
       }, get themeStore() {
         return themeStore;
-      }, CustomTabBar };
+      }, get showRequestError() {
+        return showRequestError;
+      }, CustomTabBar, SseBridge, get API_BASE_URL() {
+        return API_BASE_URL;
+      }, get redirectToLogin() {
+        return redirectToLogin;
+      }, get refreshAccessToken() {
+        return refreshAccessToken;
+      } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
@@ -8175,7 +8385,13 @@ if (uni.restoreGlobal) {
             ])
           ])
         ])) : vue.createCommentVNode("v-if", true),
-        vue.createVNode($setup["CustomTabBar"])
+        vue.createVNode($setup["CustomTabBar"]),
+        vue.createVNode($setup["SseBridge"], {
+          request: $setup.sseRequestJson,
+          onToken: $setup.onStreamToken,
+          onDone: $setup.onStreamDone,
+          onError: $setup.onStreamError
+        }, null, 8, ["request"])
       ],
       6
       /* CLASS, STYLE */
@@ -8633,7 +8849,7 @@ if (uni.restoreGlobal) {
     );
   }
   const PagesProfileIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2a, [["render", _sfc_render$29], ["__scopeId", "data-v-f97f9319"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/index.vue"]]);
-  const _sfc_main$27 = {
+  const _sfc_main$29 = {
     __name: "theme-settings",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8652,7 +8868,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$26(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$28(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -8815,8 +9031,8 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const PagesProfileThemeSettings = /* @__PURE__ */ _export_sfc(_sfc_main$27, [["render", _sfc_render$26], ["__scopeId", "data-v-3fed1323"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/theme-settings.vue"]]);
-  const _sfc_main$1d = {
+  const PagesProfileThemeSettings = /* @__PURE__ */ _export_sfc(_sfc_main$29, [["render", _sfc_render$28], ["__scopeId", "data-v-3fed1323"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/theme-settings.vue"]]);
+  const _sfc_main$28 = {
     __name: "info",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8911,7 +9127,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$1c(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$27(_ctx, _cache, $props, $setup, $data, $options) {
     var _a2;
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -9020,7 +9236,7 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesProfileInfo = /* @__PURE__ */ _export_sfc(_sfc_main$1d, [["render", _sfc_render$1c], ["__scopeId", "data-v-74ef736d"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/info.vue"]]);
+  const PagesProfileInfo = /* @__PURE__ */ _export_sfc(_sfc_main$28, [["render", _sfc_render$27], ["__scopeId", "data-v-74ef736d"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/info.vue"]]);
   __definePage("pages/auth/login", PagesAuthLogin);
   __definePage("pages/auth/register", PagesAuthRegister);
   __definePage("pages/ledger/index", PagesLedgerIndex);
@@ -9032,7 +9248,7 @@ if (uni.restoreGlobal) {
   __definePage("pages/profile/index", PagesProfileIndex);
   __definePage("pages/profile/theme-settings", PagesProfileThemeSettings);
   __definePage("pages/profile/info", PagesProfileInfo);
-  const _sfc_main$26 = {
+  const _sfc_main$27 = {
     props: {
       modelValue: {
         type: [String, Number],
@@ -9096,7 +9312,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$25(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$26(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_up_input = vue.resolveComponent("up-input");
     const _component_up_action_sheet = vue.resolveComponent("up-action-sheet");
     return vue.openBlock(), vue.createElementBlock("view", { class: "u-action-sheet-data" }, [
@@ -9126,12 +9342,12 @@ if (uni.restoreGlobal) {
       }, null, 8, ["show", "actions", "title", "description", "onSelect"])
     ]);
   }
-  const uActionSheetData = /* @__PURE__ */ _export_sfc(_sfc_main$26, [["render", _sfc_render$25], ["__scopeId", "data-v-4bff1e40"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-action-sheet-data/u-action-sheet-data.vue"]]);
+  const uActionSheetData = /* @__PURE__ */ _export_sfc(_sfc_main$27, [["render", _sfc_render$26], ["__scopeId", "data-v-4bff1e40"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-action-sheet-data/u-action-sheet-data.vue"]]);
   const __vite_glob_0_0 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: uActionSheetData
   }, Symbol.toStringTag, { value: "Module" }));
-  const props$1u = defineMixin({
+  const props$1v = defineMixin({
     props: {
       color: {
         type: String,
@@ -9164,9 +9380,9 @@ if (uni.restoreGlobal) {
       }
     }
   });
-  const _sfc_main$25 = {
+  const _sfc_main$26 = {
     name: "u-line",
-    mixins: [mpMixin, mixin, props$1u],
+    mixins: [mpMixin, mixin, props$1v],
     computed: {
       lineStyle() {
         const style = {};
@@ -9189,7 +9405,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$24(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$25(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -9201,12 +9417,12 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const __easycom_1$4 = /* @__PURE__ */ _export_sfc(_sfc_main$25, [["render", _sfc_render$24], ["__scopeId", "data-v-bbd9963c"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-line/u-line.vue"]]);
+  const __easycom_1$4 = /* @__PURE__ */ _export_sfc(_sfc_main$26, [["render", _sfc_render$25], ["__scopeId", "data-v-bbd9963c"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-line/u-line.vue"]]);
   const __vite_glob_0_56 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_1$4
   }, Symbol.toStringTag, { value: "Module" }));
-  const props$1t = defineMixin({
+  const props$1u = defineMixin({
     props: {
       // 是否显示组件
       show: {
@@ -9265,7 +9481,7 @@ if (uni.restoreGlobal) {
       }
     }
   });
-  function colorGradient$1(startColor = "rgb(0, 0, 0)", endColor = "rgb(255, 255, 255)", step = 10) {
+  function colorGradient(startColor = "rgb(0, 0, 0)", endColor = "rgb(255, 255, 255)", step = 10) {
     const startRGB = hexToRgb(startColor, false);
     const startR = startRGB[0];
     const startG = startRGB[1];
@@ -9369,15 +9585,15 @@ if (uni.restoreGlobal) {
     }
     return sColor;
   }
-  const colorGradient = {
-    colorGradient: colorGradient$1,
+  const colorGradient$1 = {
+    colorGradient,
     hexToRgb,
     rgbToHex,
     colorToRgba
   };
-  const _sfc_main$24 = {
+  const _sfc_main$25 = {
     name: "u-loading-icon",
-    mixins: [mpMixin, mixin, props$1t],
+    mixins: [mpMixin, mixin, props$1u],
     data() {
       return {
         // Array.form可以通过一个伪数组对象创建指定长度的数组
@@ -9400,7 +9616,7 @@ if (uni.restoreGlobal) {
       // 之所以需要这么做的原因是，比如父组件传了color为红色，那么需要另外的三个边为浅红色
       // 而不能是固定的某一个其他颜色(因为这个固定的颜色可能浅蓝，导致效果没有那么细腻良好)
       otherBorderColor() {
-        const lightColor = colorGradient$1(this.color, "#ffffff", 100)[80];
+        const lightColor = colorGradient(this.color, "#ffffff", 100)[80];
         if (this.mode === "circle") {
           return this.inactiveColor ? this.inactiveColor : lightColor;
         } else {
@@ -9437,7 +9653,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$23(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$24(_ctx, _cache, $props, $setup, $data, $options) {
     return _ctx.show ? (vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -9500,12 +9716,12 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     )) : vue.createCommentVNode("v-if", true);
   }
-  const __easycom_0$e = /* @__PURE__ */ _export_sfc(_sfc_main$24, [["render", _sfc_render$23], ["__scopeId", "data-v-00752c6d"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-loading-icon/u-loading-icon.vue"]]);
+  const __easycom_0$e = /* @__PURE__ */ _export_sfc(_sfc_main$25, [["render", _sfc_render$24], ["__scopeId", "data-v-00752c6d"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-loading-icon/u-loading-icon.vue"]]);
   const __vite_glob_0_60 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_0$e
   }, Symbol.toStringTag, { value: "Module" }));
-  const props$1s = defineMixin({
+  const props$1t = defineMixin({
     props: {
       // 背景颜色（默认transparent）
       bgColor: {
@@ -9529,9 +9745,9 @@ if (uni.restoreGlobal) {
       }
     }
   });
-  const _sfc_main$23 = {
+  const _sfc_main$24 = {
     name: "u-gap",
-    mixins: [mpMixin, mixin, props$1s],
+    mixins: [mpMixin, mixin, props$1t],
     computed: {
       gapStyle() {
         const style = {
@@ -9544,7 +9760,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$22(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$23(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -9556,12 +9772,12 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const __easycom_1$3 = /* @__PURE__ */ _export_sfc(_sfc_main$23, [["render", _sfc_render$22], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-gap/u-gap.vue"]]);
+  const __easycom_1$3 = /* @__PURE__ */ _export_sfc(_sfc_main$24, [["render", _sfc_render$23], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-gap/u-gap.vue"]]);
   const __vite_glob_0_43 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_1$3
   }, Symbol.toStringTag, { value: "Module" }));
-  const props$1w = defineMixin({
+  const props$1s = defineMixin({
     props: {
       // 是否展示组件
       show: {
@@ -9643,7 +9859,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  const _sfc_main$29 = {
+  const _sfc_main$23 = {
     name: "u-transition",
     data() {
       return {
@@ -9676,7 +9892,7 @@ if (uni.restoreGlobal) {
       }
     },
     // 将mixin挂在到组件中，实际上为一个vue格式对象。
-    mixins: [mpMixin, mixin, transitionMixin, props$1w],
+    mixins: [mpMixin, mixin, transitionMixin, props$1s],
     watch: {
       show: {
         handler(newVal) {
@@ -9687,7 +9903,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$28(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$22(_ctx, _cache, $props, $setup, $data, $options) {
     return $data.inited ? (vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -9705,7 +9921,7 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE, NEED_HYDRATION */
     )) : vue.createCommentVNode("v-if", true);
   }
-  const __easycom_2$1 = /* @__PURE__ */ _export_sfc(_sfc_main$29, [["render", _sfc_render$28], ["__scopeId", "data-v-0573594d"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-transition/u-transition.vue"]]);
+  const __easycom_2$1 = /* @__PURE__ */ _export_sfc(_sfc_main$23, [["render", _sfc_render$22], ["__scopeId", "data-v-0573594d"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-transition/u-transition.vue"]]);
   const __vite_glob_0_125 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_2$1
@@ -13845,7 +14061,7 @@ if (uni.restoreGlobal) {
                 style.borderBottomRightRadius = "3px";
               }
               if (e$1(date3).isAfter(e$1(this.selected[0])) && e$1(date3).isBefore(e$1(this.selected[len]))) {
-                style.backgroundColor = colorGradient$1(this.color, "#ffffff", 100)[90];
+                style.backgroundColor = colorGradient(this.color, "#ffffff", 100)[90];
                 style.opacity = 0.7;
               }
             } else if (this.selected.length === 1) {
@@ -25579,7 +25795,7 @@ if (uni.restoreGlobal) {
     __proto__: null,
     default: uGrid
   }, Symbol.toStringTag, { value: "Module" }));
-  const props$1v = defineMixin({
+  const props$R = defineMixin({
     props: {
       // 图片地址
       src: {
@@ -25663,9 +25879,9 @@ if (uni.restoreGlobal) {
       }
     }
   });
-  const _sfc_main$28 = {
+  const _sfc_main$1d = {
     name: "u-image",
-    mixins: [mpMixin, mixin, props$1v],
+    mixins: [mpMixin, mixin, props$R],
     data() {
       return {
         // 图片是否加载错误，如果是，则显示错误占位图
@@ -25755,7 +25971,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$27(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$1c(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_up_icon = vue.resolveComponent("up-icon");
     const _component_u_transition = resolveEasycom(vue.resolveDynamicComponent("u-transition"), __easycom_2$1);
     return vue.openBlock(), vue.createBlock(_component_u_transition, {
@@ -25837,7 +26053,7 @@ if (uni.restoreGlobal) {
       /* FORWARDED */
     }, 8, ["show", "style", "duration"]);
   }
-  const uImage = /* @__PURE__ */ _export_sfc(_sfc_main$28, [["render", _sfc_render$27], ["__scopeId", "data-v-9d58ba7c"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-image/u-image.vue"]]);
+  const uImage = /* @__PURE__ */ _export_sfc(_sfc_main$1d, [["render", _sfc_render$1c], ["__scopeId", "data-v-9d58ba7c"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-image/u-image.vue"]]);
   const __vite_glob_0_48 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: uImage
@@ -34742,7 +34958,7 @@ ${e2}</tr>
     __proto__: null,
     default: __easycom_1
   }, Symbol.toStringTag, { value: "Module" }));
-  let QRCode$1 = {};
+  let QRCode = {};
   (function() {
     function unicodeFormat8(code2) {
       var c0, c1, c2;
@@ -35645,7 +35861,7 @@ ${e2}</tr>
       }
     };
     let qrcodeAlgObjCache = [];
-    QRCode$1 = function(opt) {
+    QRCode = function(opt) {
       this.options = {
         text: "",
         size: 256,
@@ -35865,7 +36081,7 @@ ${e2}</tr>
         return rt;
       };
     };
-    QRCode$1.prototype.clear = function(fn) {
+    QRCode.prototype.clear = function(fn) {
       var ctx = "";
       if (options.nvueContext) {
         ctx = options.nvueContext;
@@ -35880,7 +36096,7 @@ ${e2}</tr>
       });
     };
   })();
-  const QRCode = QRCode$1;
+  const QRCode$1 = QRCode;
   let qrcode;
   const _sfc_main$J = {
     name: "u-qrcode",
@@ -36000,7 +36216,7 @@ ${e2}</tr>
         let that2 = this;
         if (!this._empty(this.val)) {
           this.loading = true;
-          qrcode = new QRCode({
+          qrcode = new QRCode$1({
             context: that2,
             // 上下文环境
             canvasId: that2.cid,
@@ -46833,10 +47049,10 @@ ${e2}</tr>
     mul,
     div
   };
-  let platform$1 = "none";
-  platform$1 = "vue3";
-  platform$1 = "plus";
-  const platform = platform$1;
+  let platform = "none";
+  platform = "vue3";
+  platform = "plus";
+  const platform$1 = platform;
   let themeType = ["primary", "success", "error", "warning", "info"];
   function setConfig(configs) {
     index.shallowMerge(config$3, configs.config || {});
@@ -46849,10 +47065,10 @@ ${e2}</tr>
     route,
     date: index.timeFormat,
     // 另名date
-    colorGradient: colorGradient.colorGradient,
-    hexToRgb: colorGradient.hexToRgb,
-    rgbToHex: colorGradient.rgbToHex,
-    colorToRgba: colorGradient.colorToRgba,
+    colorGradient: colorGradient$1.colorGradient,
+    hexToRgb: colorGradient$1.hexToRgb,
+    rgbToHex: colorGradient$1.rgbToHex,
+    colorToRgba: colorGradient$1.colorToRgba,
     test,
     type: themeType,
     http,
@@ -46867,7 +47083,7 @@ ${e2}</tr>
     // props,
     ...index,
     color: color$3,
-    platform
+    platform: platform$1
   };
   const importFn = /* @__PURE__ */ Object.assign({ "./components/u-action-sheet-data/u-action-sheet-data.vue": __vite_glob_0_0, "./components/u-action-sheet/u-action-sheet.vue": __vite_glob_0_1, "./components/u-agreement/u-agreement.vue": __vite_glob_0_2, "./components/u-album/u-album.vue": __vite_glob_0_3, "./components/u-alert/u-alert.vue": __vite_glob_0_4, "./components/u-avatar-group/u-avatar-group.vue": __vite_glob_0_5, "./components/u-avatar/u-avatar.vue": __vite_glob_0_6, "./components/u-back-top/u-back-top.vue": __vite_glob_0_7, "./components/u-badge/u-badge.vue": __vite_glob_0_8, "./components/u-barcode/u-barcode.vue": __vite_glob_0_9, "./components/u-box/u-box.vue": __vite_glob_0_10, "./components/u-button/u-button.vue": __vite_glob_0_11, "./components/u-calendar/u-calendar.vue": __vite_glob_0_12, "./components/u-car-keyboard/u-car-keyboard.vue": __vite_glob_0_13, "./components/u-card/u-card.vue": __vite_glob_0_14, "./components/u-cate-tab/u-cate-tab.vue": __vite_glob_0_15, "./components/u-cell-group/u-cell-group.vue": __vite_glob_0_16, "./components/u-cell/u-cell.vue": __vite_glob_0_17, "./components/u-checkbox-group/u-checkbox-group.vue": __vite_glob_0_18, "./components/u-checkbox/u-checkbox.vue": __vite_glob_0_19, "./components/u-circle-progress/u-circle-progress.vue": __vite_glob_0_20, "./components/u-city-locate/u-city-locate.vue": __vite_glob_0_21, "./components/u-code-input/u-code-input.vue": __vite_glob_0_22, "./components/u-code/u-code.vue": __vite_glob_0_23, "./components/u-col/u-col.vue": __vite_glob_0_24, "./components/u-collapse-item/u-collapse-item.vue": __vite_glob_0_25, "./components/u-collapse/u-collapse.vue": __vite_glob_0_26, "./components/u-color-picker/u-color-picker.vue": __vite_glob_0_27, "./components/u-column-notice/u-column-notice.vue": __vite_glob_0_28, "./components/u-copy/u-copy.vue": __vite_glob_0_29, "./components/u-count-down/u-count-down.vue": __vite_glob_0_30, "./components/u-count-to/u-count-to.vue": __vite_glob_0_31, "./components/u-coupon/u-coupon.vue": __vite_glob_0_32, "./components/u-cropper/u-cropper.vue": __vite_glob_0_33, "./components/u-datetime-picker/u-datetime-picker.vue": __vite_glob_0_34, "./components/u-divider/u-divider.vue": __vite_glob_0_35, "./components/u-dragsort/u-dragsort.vue": __vite_glob_0_36, "./components/u-dropdown-item/u-dropdown-item.vue": __vite_glob_0_37, "./components/u-dropdown/u-dropdown.vue": __vite_glob_0_38, "./components/u-empty/u-empty.vue": __vite_glob_0_39, "./components/u-float-button/u-float-button.vue": __vite_glob_0_40, "./components/u-form-item/u-form-item.vue": __vite_glob_0_41, "./components/u-form/u-form.vue": __vite_glob_0_42, "./components/u-gap/u-gap.vue": __vite_glob_0_43, "./components/u-goods-sku/u-goods-sku.vue": __vite_glob_0_44, "./components/u-grid-item/u-grid-item.vue": __vite_glob_0_45, "./components/u-grid/u-grid.vue": __vite_glob_0_46, "./components/u-icon/u-icon.vue": __vite_glob_0_47, "./components/u-image/u-image.vue": __vite_glob_0_48, "./components/u-index-anchor/u-index-anchor.vue": __vite_glob_0_49, "./components/u-index-item/u-index-item.vue": __vite_glob_0_50, "./components/u-index-list/u-index-list.vue": __vite_glob_0_51, "./components/u-input/u-input.vue": __vite_glob_0_52, "./components/u-keyboard/u-keyboard.vue": __vite_glob_0_53, "./components/u-lazy-load/u-lazy-load.vue": __vite_glob_0_54, "./components/u-line-progress/u-line-progress.vue": __vite_glob_0_55, "./components/u-line/u-line.vue": __vite_glob_0_56, "./components/u-link/u-link.vue": __vite_glob_0_57, "./components/u-list-item/u-list-item.vue": __vite_glob_0_58, "./components/u-list/u-list.vue": __vite_glob_0_59, "./components/u-loading-icon/u-loading-icon.vue": __vite_glob_0_60, "./components/u-loading-page/u-loading-page.vue": __vite_glob_0_61, "./components/u-loadmore/u-loadmore.vue": __vite_glob_0_62, "./components/u-markdown/u-markdown.vue": __vite_glob_0_63, "./components/u-message-input/u-message-input.vue": __vite_glob_0_64, "./components/u-modal/u-modal.vue": __vite_glob_0_65, "./components/u-navbar-mini/u-navbar-mini.vue": __vite_glob_0_66, "./components/u-navbar/u-navbar.vue": __vite_glob_0_67, "./components/u-no-network/u-no-network.vue": __vite_glob_0_68, "./components/u-notice-bar/u-notice-bar.vue": __vite_glob_0_69, "./components/u-notify/u-notify.vue": __vite_glob_0_70, "./components/u-number-box/u-number-box.vue": __vite_glob_0_71, "./components/u-number-keyboard/u-number-keyboard.vue": __vite_glob_0_72, "./components/u-overlay/u-overlay.vue": __vite_glob_0_73, "./components/u-pagination/u-pagination.vue": __vite_glob_0_74, "./components/u-parse/u-parse.vue": __vite_glob_0_75, "./components/u-pdf-reader/u-pdf-reader.vue": __vite_glob_0_76, "./components/u-picker-column/u-picker-column.vue": __vite_glob_0_77, "./components/u-picker-data/u-picker-data.vue": __vite_glob_0_78, "./components/u-picker/u-picker.vue": __vite_glob_0_79, "./components/u-popup/u-popup.vue": __vite_glob_0_80, "./components/u-poster/u-poster.vue": __vite_glob_0_81, "./components/u-pull-refresh/u-pull-refresh.vue": __vite_glob_0_82, "./components/u-qrcode/u-qrcode.vue": __vite_glob_0_83, "./components/u-radio-group/u-radio-group.vue": __vite_glob_0_84, "./components/u-radio/u-radio.vue": __vite_glob_0_85, "./components/u-rate/u-rate.vue": __vite_glob_0_86, "./components/u-read-more/u-read-more.vue": __vite_glob_0_87, "./components/u-refresh-virtual-list/u-refresh-virtual-list.vue": __vite_glob_0_88, "./components/u-row-notice/u-row-notice.vue": __vite_glob_0_89, "./components/u-row/u-row.vue": __vite_glob_0_90, "./components/u-safe-bottom/u-safe-bottom.vue": __vite_glob_0_91, "./components/u-scroll-list/u-scroll-list.vue": __vite_glob_0_92, "./components/u-search/u-search.vue": __vite_glob_0_93, "./components/u-select/u-select.vue": __vite_glob_0_94, "./components/u-short-video/u-short-video.vue": __vite_glob_0_95, "./components/u-signature/u-signature.vue": __vite_glob_0_96, "./components/u-skeleton/u-skeleton.vue": __vite_glob_0_97, "./components/u-slider/u-slider.vue": __vite_glob_0_98, "./components/u-status-bar/u-status-bar.vue": __vite_glob_0_99, "./components/u-steps-item/u-steps-item.vue": __vite_glob_0_100, "./components/u-steps/u-steps.vue": __vite_glob_0_101, "./components/u-sticky/u-sticky.vue": __vite_glob_0_102, "./components/u-subsection/u-subsection.vue": __vite_glob_0_103, "./components/u-swipe-action-item/u-swipe-action-item.vue": __vite_glob_0_104, "./components/u-swipe-action/u-swipe-action.vue": __vite_glob_0_105, "./components/u-swiper-indicator/u-swiper-indicator.vue": __vite_glob_0_106, "./components/u-swiper/u-swiper.vue": __vite_glob_0_107, "./components/u-switch/u-switch.vue": __vite_glob_0_108, "./components/u-tabbar-item/u-tabbar-item.vue": __vite_glob_0_109, "./components/u-tabbar/u-tabbar.vue": __vite_glob_0_110, "./components/u-table/u-table.vue": __vite_glob_0_111, "./components/u-table2/u-table2.vue": __vite_glob_0_112, "./components/u-tabs-item/u-tabs-item.vue": __vite_glob_0_113, "./components/u-tabs/u-tabs.vue": __vite_glob_0_114, "./components/u-tag/u-tag.vue": __vite_glob_0_115, "./components/u-td/u-td.vue": __vite_glob_0_116, "./components/u-text/u-text.vue": __vite_glob_0_117, "./components/u-textarea/u-textarea.vue": __vite_glob_0_118, "./components/u-th/u-th.vue": __vite_glob_0_119, "./components/u-title/u-title.vue": __vite_glob_0_120, "./components/u-toast/u-toast.vue": __vite_glob_0_121, "./components/u-toolbar/u-toolbar.vue": __vite_glob_0_122, "./components/u-tooltip/u-tooltip.vue": __vite_glob_0_123, "./components/u-tr/u-tr.vue": __vite_glob_0_124, "./components/u-transition/u-transition.vue": __vite_glob_0_125, "./components/u-tree/u-tree.vue": __vite_glob_0_126, "./components/u-upload/u-upload.vue": __vite_glob_0_127, "./components/u-view/u-view.vue": __vite_glob_0_128, "./components/u-virtual-list/u-virtual-list.vue": __vite_glob_0_129, "./components/u-waterfall/u-waterfall.vue": __vite_glob_0_130 });
   let components = [];
@@ -47614,7 +47830,7 @@ ${e2}</tr>
       return titleMapCache;
     titleMapCache = {};
     try {
-      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/category-transactions":"分类流水","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的","pages/profile/theme-settings":"主题外观"}';
+      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/category-transactions":"分类流水","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的","pages/profile/theme-settings":"主题外观","pages/profile/info":"个人信息"}';
       if (typeof raw !== "string" || !raw)
         ;
       const parsed = JSON.parse(raw);

@@ -59,6 +59,8 @@
 
     <!-- #ifdef APP-PLUS -->
     <custom-tab-bar />
+    <!-- App 端流式桥：renderjs 必须运行在选项式 API 的子组件内（uni-app Vue3 不支持 <script setup> 与 renderjs 的 callMethod 配合） -->
+    <sse-bridge :request="sseRequestJson" @token="onStreamToken" @done="onStreamDone" @error="onStreamError" />
     <!-- #endif -->
   </view>
 </template>
@@ -68,10 +70,13 @@ import { computed, nextTick, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { authStore } from '../../stores/auth'
-import { showRequestError } from '../../utils/request'
 import { themeStore } from '../../stores/theme'
+import { showRequestError } from '../../utils/request'
 // #ifdef APP-PLUS
 import CustomTabBar from '../../custom-tab-bar/index.vue'
+import SseBridge from '../../sse-bridge/index.vue'
+import { API_BASE_URL } from '../../config'
+import { redirectToLogin, refreshAccessToken } from '../../utils/request'
 // #endif
 
 const SESSION_KEY = 'mechi_chat_session_id'
@@ -161,11 +166,16 @@ async function send() {
   scrollBottom()
   sending.value = true
   try {
+    // #ifdef APP-PLUS
+    await sendViaAppStream(message, assistantMessage)
+    // #endif
+    // #ifndef APP-PLUS
     await appApi.streamChat({ message, sessionId: sessionId.value }, (token) => {
       if (token.startsWith('[ERROR]')) throw new Error(token.replace(/^\[ERROR\]\s*/, ''))
       assistantMessage.content += token
       scrollBottom()
     })
+    // #endif
   } catch (error) {
     if (!assistantMessage.content) messages.value.pop()
     showRequestError(error)
@@ -180,6 +190,55 @@ function formatConversationTime(value) {
   return value ? value.replace('T', ' ').slice(0, 16) : ''
 }
 function scrollBottom() { nextTick(() => { bottomId.value = ''; setTimeout(() => { bottomId.value = 'chat-bottom' }, 20) }) }
+
+// #ifdef APP-PLUS
+// renderjs 流式桥：逻辑层下发请求参数 → webview 里 fetch SSE → token 逐个回传
+const sseRequestJson = ref('')
+let sseSequence = 0
+let activeSse = null
+
+function sendViaAppStream(message, assistantMessage, retried = false) {
+  return new Promise((resolve, reject) => {
+    activeSse = { assistantMessage, resolve, reject, finished: false }
+    sseSequence += 1
+    sseRequestJson.value = JSON.stringify({
+      id: sseSequence,
+      url: `${API_BASE_URL}/api/v1/app/chat/stream`,
+      token: authStore.token || '',
+      body: { message, sessionId: sessionId.value }
+    })
+  }).catch(async (error) => {
+    if (error?.message === 'UNAUTHORIZED' && !retried) {
+      try {
+        await refreshAccessToken()
+      } catch (refreshError) {
+        redirectToLogin()
+        throw error
+      }
+      return sendViaAppStream(message, assistantMessage, true)
+    }
+    throw error
+  })
+}
+function onStreamToken(token) {
+  const active = activeSse
+  if (!active || active.finished || !token) return
+  active.assistantMessage.content += token
+  scrollBottom()
+}
+function onStreamDone() {
+  const active = activeSse
+  if (!active || active.finished) return
+  active.finished = true
+  active.resolve()
+}
+function onStreamError(message) {
+  const active = activeSse
+  if (!active || active.finished) return
+  active.finished = true
+  active.reject(new Error(message || '对话请求失败'))
+}
+// #endif
 </script>
 
 <style scoped>

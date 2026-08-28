@@ -16,11 +16,102 @@ function consumeSseEvents(buffer, onToken) {
   return remainder
 }
 
+// App 端逻辑层没有 fetch，用 uni.request enableChunked 接收 SSE 分块；ArrayBuffer 手动按 UTF-8 解码（处理跨块撕裂）
+function createChunkDecoder() {
+  let pending = new Uint8Array(0)
+  const concat = (a, b) => { const out = new Uint8Array(a.length + b.length); out.set(a); out.set(b, a.length); return out }
+  return (chunk) => {
+    const incoming = chunk instanceof ArrayBuffer ? new Uint8Array(chunk) : new Uint8Array(chunk.buffer || chunk)
+    const all = concat(pending, incoming)
+    let end = all.length
+    for (let i = all.length - 1; i >= 0 && i >= all.length - 4; i--) {
+      if ((all[i] & 0xc0) !== 0x80) {
+        const seqLen = all[i] < 0x80 ? 1 : all[i] < 0xe0 ? 2 : all[i] < 0xf0 ? 3 : 4
+        if (i + seqLen > all.length) end = i
+        break
+      }
+    }
+    pending = all.slice(end)
+    const bytes = all.slice(0, end)
+    let out = ''
+    for (let i = 0; i < bytes.length;) {
+      const b = bytes[i]
+      if (b < 0x80) { out += String.fromCharCode(b); i += 1 }
+      else if (b < 0xe0) { out += String.fromCharCode(((b & 0x1f) << 6) | (bytes[i + 1] & 0x3f)); i += 2 }
+      else if (b < 0xf0) { out += String.fromCharCode(((b & 0x0f) << 12) | ((bytes[i + 1] & 0x3f) << 6) | (bytes[i + 2] & 0x3f)); i += 3 }
+      else { out += String.fromCodePoint(((b & 0x07) << 18) | ((bytes[i + 1] & 0x3f) << 12) | ((bytes[i + 2] & 0x3f) << 6) | (bytes[i + 3] & 0x3f)); i += 4 }
+    }
+    return out
+  }
+}
+
+// App 端逻辑层没有 fetch：统一只调 /chat/stream，保证单次请求。
+// 基座支持 onChunkReceived 时逐块流式；不支持时请求正常完成，在 success 里一次性解析完整 SSE。
+function streamChatNative(data, onToken) {
+  return new Promise((resolve, reject) => {
+    let buffer = ''
+    let headerStatus = 0
+    let chunked = false
+    let settled = false
+    const finish = (fn, value) => { if (!settled) { settled = true; fn(value) } }
+    const failWith = (message) => finish(reject, new Error(message))
+    const consumeAll = (text) => { buffer += text; buffer = consumeSseEvents(`${buffer}\n\n`, onToken); buffer = '' }
+    const decode = createChunkDecoder()
+    const task = uni.request({
+      url: `${API_BASE_URL}/api/v1/app/chat/stream`,
+      method: 'POST',
+      enableChunked: true,
+      dataType: 'text',
+      timeout: 120000,
+      header: {
+        Accept: 'text/event-stream',
+        'Content-Type': 'application/json',
+        ...(authStore.token ? { 'X-App-Token': authStore.token } : {})
+      },
+      data,
+      success: (res) => {
+        if (res.statusCode === 401) { failWith('UNAUTHORIZED'); return }
+        if (res.statusCode !== 200) { failWith(typeof res.data === 'string' && res.data ? res.data : `流式请求失败(${res.statusCode})`); return }
+        if (!chunked && buffer.length === 0 && typeof res.data === 'string' && res.data) consumeAll(res.data)
+        else if (buffer.trim()) consumeSseEvents(`${buffer}\n\n`, onToken)
+        finish(resolve)
+      },
+      fail: (error) => failWith(headerStatus === 401 ? 'UNAUTHORIZED' : (error?.errMsg || '流式请求失败'))
+    })
+    if (typeof task?.onChunkReceived === 'function') {
+      if (typeof task.onHeadersReceived === 'function') {
+        task.onHeadersReceived(({ statusCode }) => {
+          headerStatus = statusCode
+          if (statusCode === 401) task.abort()
+        })
+      }
+      task.onChunkReceived(({ data: chunk }) => {
+        if (headerStatus && headerStatus !== 200) return
+        chunked = true
+        buffer += decode(chunk)
+        buffer = consumeSseEvents(buffer, onToken)
+      })
+    }
+    // 分块 API 不可用时不中止请求：等待 success，用完整响应一次性解析，仍只有一次调用
+  })
+}
+
 async function streamChat(data, onToken, retried = false) {
   if (typeof fetch !== 'function') {
-    const response = await request({ url: '/api/v1/app/chat', method: 'POST', data })
-    if (!response.success) throw new Error(response.error || '暂时无法回复')
-    onToken(response.reply)
+    try {
+      await streamChatNative(data, onToken)
+    } catch (error) {
+      if (error?.message === 'UNAUTHORIZED' && !retried) {
+        try {
+          await refreshAccessToken()
+          return streamChat(data, onToken, true)
+        } catch (refreshError) {
+          redirectToLogin()
+          throw refreshError
+        }
+      }
+      throw error
+    }
     return
   }
 
