@@ -92,3 +92,59 @@
 }.calendar-day.selected[data-v-ef724408] { color: #fff; background: #1677ff; box-shadow: 0 0.1875rem 0.4375rem rgba(22, 119, 255, .22);
 }.calendar-day.selected.today[data-v-ef724408] { color: #fff;
 }
+
+/* 主题覆盖：记账表单的容器、分类、键盘与日历统一跟随当前主题。 */
+.page[data-v-ef724408] { background: var(--theme-page-bg) !important;
+}
+.book-header[data-v-ef724408], .type-switch[data-v-ef724408], .category-section[data-v-ef724408], .entry-panel[data-v-ef724408], .calendar-panel[data-v-ef724408] { background: var(--theme-surface) !important;
+}
+.book-title[data-v-ef724408], .calendar-title[data-v-ef724408], .calendar-heading[data-v-ef724408], .nav-button[data-v-ef724408] { color: var(--theme-text) !important;
+}
+.book-subtitle[data-v-ef724408], .empty-category[data-v-ef724408], .calendar-current[data-v-ef724408], .weekdays uni-text[data-v-ef724408] { color: var(--theme-text-muted) !important;
+}
+.back-button[data-v-ef724408] { background: var(--theme-primary-soft) !important;
+}
+.back-button[data-v-ef724408]::before { border-color: var(--theme-primary) !important;
+}
+.type[data-v-ef724408] { color: var(--theme-text-secondary) !important;
+}
+.type.active-expense[data-v-ef724408], .type.active-income[data-v-ef724408] { color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important;
+}
+.type.active-expense[data-v-ef724408]::after, .type.active-income[data-v-ef724408]::after { background: var(--theme-primary) !important;
+}
+.category-icon[data-v-ef724408] { border-color: var(--theme-border) !important; background: var(--theme-page-bg) !important;
+}
+.category-name[data-v-ef724408] { color: var(--theme-text-secondary) !important;
+}
+.category-item.selected .category-icon[data-v-ef724408] { border-color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; box-shadow: 0 0.1875rem 0.4375rem var(--theme-primary-shadow) !important;
+}
+.category-item.selected .category-name[data-v-ef724408] { color: var(--theme-primary) !important;
+}
+.category-dots uni-text[data-v-ef724408] { background: var(--theme-border) !important;
+}
+.category-dots .active-dot[data-v-ef724408] { background: var(--theme-primary) !important;
+}
+.entry-panel[data-v-ef724408] { border-color: var(--theme-border) !important;
+}
+.note-input[data-v-ef724408], .amount-display[data-v-ef724408] { background: var(--theme-page-bg) !important;
+}
+.note-input[data-v-ef724408], .key[data-v-ef724408], .calendar-day[data-v-ef724408] { color: var(--theme-text-strong) !important;
+}
+.note-input[data-v-ef724408]::-moz-placeholder { color: var(--theme-text-muted) !important;
+}
+.note-input[data-v-ef724408]::placeholder { color: var(--theme-text-muted) !important;
+}
+.amount-display[data-v-ef724408], .date-key[data-v-ef724408], .utility-key[data-v-ef724408] { color: var(--theme-primary) !important;
+}
+.key[data-v-ef724408] { border-color: var(--theme-border) !important; background: var(--theme-surface) !important;
+}
+.key[data-v-ef724408]:active, .date-key[data-v-ef724408], .utility-key[data-v-ef724408] { background: var(--theme-primary-soft) !important;
+}
+.submit-key[data-v-ef724408] { color: #fff !important; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important;
+}
+.calendar-handle[data-v-ef724408] { background: var(--theme-border) !important;
+}
+.calendar-day.today[data-v-ef724408] { color: var(--theme-primary) !important;
+}
+.calendar-day.selected[data-v-ef724408] { color: #fff !important; background: var(--theme-primary) !important; box-shadow: 0 0.1875rem 0.4375rem var(--theme-primary-shadow) !important;
+}

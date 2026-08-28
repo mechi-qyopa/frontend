@@ -1,5 +1,5 @@
 <template>
-  <view class="chat-page">
+  <view :class="['chat-page', `theme-${themeStore.id}`]" :key="themeStore.id" :style="[themeStore.pageStyle, appChatStyle]">
     <view class="chat-header">
       <view class="conversation-trigger">
         <text class="conversation-label">当前对话</text>
@@ -56,6 +56,10 @@
         </scroll-view>
       </view>
     </view>
+
+    <!-- #ifdef APP-PLUS -->
+    <custom-tab-bar />
+    <!-- #endif -->
   </view>
 </template>
 
@@ -65,6 +69,10 @@ import { onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { authStore } from '../../stores/auth'
 import { showRequestError } from '../../utils/request'
+import { themeStore } from '../../stores/theme'
+// #ifdef APP-PLUS
+import CustomTabBar from '../../custom-tab-bar/index.vue'
+// #endif
 
 const SESSION_KEY = 'mechi_chat_session_id'
 const messages = ref([])
@@ -80,6 +88,16 @@ const userInitial = computed(() => (authStore.profile?.username || '我').slice(
 const activeConversationTitle = computed(() => {
   return conversations.value.find((conversation) => conversation.sessionId === sessionId.value)?.title || '新对话'
 })
+
+// #ifdef APP-PLUS
+// App 端页面高度 = 视口高 - tabBar 实测渲染高 + 4px 保险（超出部分被不透明 tabBar 盖住，杜绝取整误差露出白缝）。
+const { windowWidth, windowHeight, safeAreaInsets } = uni.getSystemInfoSync()
+const fallbackTabBarPx = Math.round((140 * windowWidth) / 750) + (safeAreaInsets?.bottom || 0)
+const appChatStyle = computed(() => {
+  const tabBarPx = themeStore.appTabBar.heightPx || fallbackTabBarPx
+  return { height: `${Math.max(windowHeight - tabBarPx + 4, 0)}px` }
+})
+// #endif
 
 onShow(async () => {
   ensureSession()
@@ -165,12 +183,16 @@ function scrollBottom() { nextTick(() => { bottomId.value = ''; setTimeout(() =>
 </script>
 
 <style scoped>
-.chat-page { display: flex; flex-direction: column; height: calc(100vh - var(--window-top) - var(--window-bottom)); background: #f5f7fb; }
-.chat-header { display: flex; align-items: center; flex-shrink: 0; gap: 20rpx; padding: 18rpx 24rpx; border-bottom: 1rpx solid #edf0f5; background: #fff; }
+.chat-page { display: flex; flex-direction: column; height: calc(100vh - var(--window-top) - var(--tab-bar-height, var(--window-bottom))); background: #f5f7fb; }
+/* #ifdef APP-PLUS */
+/* App 端页面高度由 script 内按系统信息以像素内联（appChatStyle），精确等于视口高 - tabBar(140rpx) - 底部安全区 */
+.composer { padding-bottom: 18rpx; }
+/* #endif */
+.chat-header { display: flex; align-items: center; flex-shrink: 0; gap: 20rpx; padding: calc(18rpx + var(--status-bar-height, 0px)) 24rpx 18rpx; border-bottom: 1rpx solid #edf0f5; background: #fff; }
 .conversation-trigger { display: flex; flex: 1; min-width: 0; flex-direction: column; }
 .conversation-label { color: #98a2b3; font-size: 21rpx; }
 .conversation-title { overflow: hidden; margin-top: 2rpx; color: #344054; font-size: 29rpx; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
-.new-conversation { flex-shrink: 0; height: 62rpx; margin: 0; padding: 0 22rpx; border: 1rpx solid #b9d6ff; border-radius: 16rpx; color: #1677ff; line-height: 60rpx; background: #f0f7ff; font-size: 24rpx; }
+.new-conversation { flex-shrink: 0; height: 62rpx; margin: 0; padding: 0 22rpx; border: 1rpx solid #b9d6ff; border-radius: var(--theme-radius-control, 16rpx); color: #1677ff; line-height: 60rpx; background: #f0f7ff; font-size: 24rpx; }
 .new-conversation::after { border: 0; }
 .messages { flex: 1; min-height: 0; padding: 32rpx 24rpx 24rpx; box-sizing: border-box; }
 .welcome { display: flex; flex-direction: column; align-items: center; margin: 116rpx 20rpx; color: #667085; text-align: center; line-height: 1.8; }
@@ -188,16 +210,16 @@ function scrollBottom() { nextTick(() => { bottomId.value = ''; setTimeout(() =>
 .message-content { display: flex; flex-direction: column; max-width: calc(100% - 78rpx); }
 .user-row .message-content { align-items: flex-end; }
 .assistant-row .message-content { align-items: flex-start; }
-.message { max-width: 100%; padding: 20rpx 24rpx; border-radius: 22rpx; line-height: 1.6; white-space: pre-wrap; word-break: break-word; box-sizing: border-box; }
+.message { max-width: 100%; padding: 20rpx 24rpx; border-radius: var(--theme-radius-control, 22rpx); line-height: 1.6; white-space: pre-wrap; word-break: break-word; box-sizing: border-box; }
 .user { color: #fff; background: linear-gradient(135deg, #1677ff, #3e91ff); box-shadow: 0 8rpx 18rpx rgba(22, 119, 255, .16); }
 .assistant { color: #344054; background: #fff; border: 1rpx solid #edf0f5; box-shadow: 0 6rpx 20rpx rgba(29, 41, 57, .05); }
 .typing-cursor { display: inline-block; margin-left: 4rpx; color: #1677ff; animation: blink 1s step-end infinite; }
 .composer { display: flex; align-items: center; flex-shrink: 0; gap: 16rpx; padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #edf0f5; background: rgba(255, 255, 255, .97); box-shadow: 0 -6rpx 22rpx rgba(29, 41, 57, .05); }
-.composer-field { display: flex; align-items: center; flex: 1; min-width: 0; height: 82rpx; padding: 0 20rpx 0 24rpx; border: 2rpx solid transparent; border-radius: 24rpx; background: #f2f4f7; box-sizing: border-box; transition: border-color .2s, background .2s; }
+.composer-field { display: flex; align-items: center; flex: 1; min-width: 0; height: 82rpx; padding: 0 20rpx 0 24rpx; border: 2rpx solid transparent; border-radius: var(--theme-radius-control, 24rpx); background: #f2f4f7; box-sizing: border-box; transition: border-color .2s, background .2s; }
 .composer-field:focus-within { border-color: #a9ceff; background: #fff; }
 .composer-input { flex: 1; min-width: 0; height: 78rpx; color: #344054; font-size: 28rpx; }
 .composer-count { flex-shrink: 0; margin-left: 10rpx; color: #98a2b3; font-size: 20rpx; }
-.send { width: 116rpx; height: 82rpx; margin: 0; padding: 0; border-radius: 24rpx; color: #98a2b3; line-height: 82rpx; background: #e4e7ec; font-size: 26rpx; transition: transform .2s, background .2s; }
+.send { width: 116rpx; height: 82rpx; margin: 0; padding: 0; border-radius: var(--theme-radius-control, 24rpx); color: #98a2b3; line-height: 82rpx; background: #e4e7ec; font-size: 26rpx; transition: transform .2s, background .2s; }
 .send::after { border: 0; }
 .send-ready { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .2); }
 .send-ready:active { transform: scale(.96); }
@@ -216,4 +238,24 @@ function scrollBottom() { nextTick(() => { bottomId.value = ''; setTimeout(() =>
 .conversation-item-time { color: #98a2b3; font-size: 22rpx; }
 .conversation-active-mark { flex-shrink: 0; color: #1677ff; font-size: 22rpx; }
 @keyframes blink { 50% { opacity: 0; } }
+
+/* 主题覆盖：顶部、气泡、输入区与历史会话面板实时跟随主题。 */
+.chat-page { background: var(--theme-page-bg) !important; }
+.chat-header, .composer, .assistant, .conversation-panel { background: var(--theme-surface) !important; border-color: var(--theme-border) !important; }
+.chat-header, .composer { box-shadow: 0 6rpx 22rpx rgba(36, 58, 99, .05); }
+.conversation-label, .composer-count, .conversation-item-time, .conversation-empty { color: var(--theme-text-muted) !important; }
+.conversation-title, .welcome-title, .assistant, .composer-input, .conversation-panel-title, .conversation-item-title { color: var(--theme-text-strong) !important; }
+.welcome, .welcome-description, .conversation-close { color: var(--theme-text-secondary) !important; }
+.new-conversation { color: var(--theme-primary) !important; border-color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; }
+.welcome-avatar, .assistant-avatar, .user { background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; }
+.welcome-avatar, .assistant-avatar, .user { box-shadow: 0 8rpx 20rpx var(--theme-primary-shadow) !important; }
+.user-avatar, .user-avatar-image { color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; }
+.typing-cursor, .conversation-active-mark { color: var(--theme-primary) !important; }
+.composer-field { background: var(--theme-page-bg) !important; }
+.composer-field:focus-within { border-color: var(--theme-primary) !important; background: var(--theme-surface) !important; box-shadow: 0 0 0 5rpx var(--theme-primary-soft); }
+.send { color: var(--theme-text-muted) !important; background: var(--theme-border) !important; }
+.send-ready, .conversation-create { color: #fff !important; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; box-shadow: 0 8rpx 18rpx var(--theme-primary-shadow) !important; }
+.conversation-item { border-color: var(--theme-border) !important; }
+.conversation-item.active { background: var(--theme-primary-soft) !important; }
+.conversation-item:active, .new-conversation:active { opacity: .76; }
 </style>

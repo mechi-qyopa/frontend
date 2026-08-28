@@ -1,3 +1,75 @@
+@font-face {
+  font-family: "uicon-iconfont";
+  src: url("https://at.alicdn.com/t/font_2225171_8kdcwk4po24.ttf") format("truetype");
+}
+.u-icon[data-v-1c933a9a] {
+  display: flex;
+  align-items: center;
+}
+.u-icon--left[data-v-1c933a9a] {
+  flex-direction: row-reverse;
+  align-items: center;
+}
+.u-icon--right[data-v-1c933a9a] {
+  flex-direction: row;
+  align-items: center;
+}
+.u-icon--top[data-v-1c933a9a] {
+  flex-direction: column-reverse;
+  justify-content: center;
+}
+.u-icon--bottom[data-v-1c933a9a] {
+  flex-direction: column;
+  justify-content: center;
+}
+.u-icon__icon[data-v-1c933a9a] {
+  font-family: uicon-iconfont;
+  position: relative;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+.u-icon__icon--primary[data-v-1c933a9a] {
+  color: #3c9cff;
+}
+.u-icon__icon--success[data-v-1c933a9a] {
+  color: #5ac725;
+}
+.u-icon__icon--error[data-v-1c933a9a] {
+  color: #f56c6c;
+}
+.u-icon__icon--warning[data-v-1c933a9a] {
+  color: #f9ae3d;
+}
+.u-icon__icon--info[data-v-1c933a9a] {
+  color: #909399;
+}
+.u-icon__img[data-v-1c933a9a] {
+  height: auto;
+  will-change: transform;
+}
+.u-icon__label[data-v-1c933a9a] {
+  line-height: 1;
+}
+
+.tab-bar[data-v-3ac3557a] { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; display: flex; min-height: 3.5rem; padding: 0.4375rem 0.5rem calc(0.4375rem + env(safe-area-inset-bottom)); border-top: 0.03125rem solid var(--theme-border); background: var(--theme-surface); box-shadow: 0 -0.3125rem 0.9375rem rgba(28, 39, 59, .06); box-sizing: border-box;
+}
+.tab-item[data-v-3ac3557a] { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 0.15625rem; min-width: 0; color: var(--theme-tab-inactive);
+}
+.tab-icon-wrap[data-v-3ac3557a] { display: flex; align-items: center; justify-content: center; width: 1.6875rem; height: 1.4375rem; border-radius: var(--theme-radius-control, 0.5rem); transition: all .2s ease;
+}
+.tab-label[data-v-3ac3557a] { color: inherit; font-size: 0.875rem; line-height: 1.2; transition: all .2s ease;
+}
+.tab-item.active[data-v-3ac3557a] { color: var(--theme-primary);
+}
+.tab-item.active .tab-icon-wrap[data-v-3ac3557a] { color: var(--theme-primary); background: var(--theme-primary-soft); box-shadow: 0 0.15625rem 0.375rem var(--theme-primary-shadow);
+}
+.tab-item.active .tab-label[data-v-3ac3557a] { font-weight: 600;
+}
+
+
+.ledger-page[data-v-43fd4b50] { min-height: 100vh; padding-top: var(--status-bar-height, 0); background: var(--theme-page-bg); box-sizing: border-box;
+}
 .range-bar[data-v-43fd4b50] { display: flex; align-items: center; justify-content: space-between; margin: 0.75rem 0.75rem 0; padding: 0.75rem 0.875rem; border-radius: 0.6875rem; background: #fff; box-shadow: 0 0.25rem 0.875rem rgba(36,58,99,.05);
 }.range-title[data-v-43fd4b50],.range-detail[data-v-43fd4b50] { display: block;
 }.range-title[data-v-43fd4b50] { color: #1d2939; font-size: 1rem; font-weight: 600;
@@ -15,7 +87,7 @@
 }.summary-card .income[data-v-43fd4b50],.summary-card .expense[data-v-43fd4b50],.balance[data-v-43fd4b50] { color: #fff; font-size: 0.9375rem; font-weight: 600;
 }.list-title[data-v-43fd4b50] { padding: 1.125rem 0.875rem 0.5rem; color: #344054; font-size: 0.9375rem; font-weight: 600;
 }.list-title .muted[data-v-43fd4b50] { margin-left: 0.3125rem; font-size: 0.75rem; font-weight: 400;
-}.day-groups[data-v-43fd4b50] { padding-bottom: calc(4.6875rem + env(safe-area-inset-bottom));
+}.day-groups[data-v-43fd4b50] { padding-bottom: calc(4.6875rem + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom));
 }.day-group[data-v-43fd4b50] { margin: 0 0.75rem 0.875rem;
 }.day-header[data-v-43fd4b50] { display: flex; align-items: center; justify-content: space-between; padding: 0.125rem 0.125rem 0.4375rem;
 }.day-label[data-v-43fd4b50] { color: #344054; font-size: 0.84375rem; font-weight: 600;
@@ -33,7 +105,7 @@
 }.income[data-v-43fd4b50] { color: #16a34a;
 }.expense[data-v-43fd4b50] { color: #e11d48;
 }.delete[data-v-43fd4b50] { margin-left: 0.5rem; color: #98a2b3; font-size: 0.71875rem;
-}.add-fab[data-v-43fd4b50] { position: fixed; z-index: 20; bottom: calc(0.875rem + var(--window-bottom)); left: 50%; display: flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem; border: 0.25rem solid #f5f7fb; border-radius: 50%; color: #fff; background: #1677ff; box-shadow: 0 0.375rem 0.875rem rgba(22,119,255,.36); transform: translateX(-50%);
+}.add-fab[data-v-43fd4b50] { position: fixed; z-index: 20; bottom: calc(0.875rem + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom)); left: 50%; display: flex; align-items: center; justify-content: center; width: 3.5rem; height: 3.5rem; border: 0.25rem solid #f5f7fb; border-radius: 50%; color: #fff; background: #1677ff; box-shadow: 0 0.375rem 0.875rem rgba(22,119,255,.36); transform: translateX(-50%);
 }.add-fab uni-text[data-v-43fd4b50] { font-size: 2.25rem; font-weight: 300; line-height: 1;
 }.picker-mask[data-v-43fd4b50] { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(0,0,0,.5);
 }.date-picker[data-v-43fd4b50] { width: 100%; min-height: 19.0625rem; padding: 0.5625rem 1.25rem calc(1.25rem + env(safe-area-inset-bottom)); border-radius: 1rem 1rem 0 0; background: #fff; box-sizing: border-box;
@@ -59,4 +131,42 @@
 }.range-arrow[data-v-43fd4b50]::before,.range-arrow[data-v-43fd4b50]::after { position: absolute; border-radius: 0.09375rem; background: #667085; content: '';
 }.range-arrow[data-v-43fd4b50]::before { top: 0.15625rem; left: 0.34375rem; width: 0.09375rem; height: 0.34375rem;
 }.range-arrow[data-v-43fd4b50]::after { top: 0.4375rem; left: 0.40625rem; width: 0.28125rem; height: 0.09375rem;
+}
+
+/* 主题覆盖：卡片、汇总、日期弹层与新增操作统一使用运行时主题令牌；收支保留语义色。 */
+.range-bar[data-v-43fd4b50], .transaction-list[data-v-43fd4b50], .date-picker[data-v-43fd4b50] { background: var(--theme-surface) !important; box-shadow: 0 0.25rem 0.875rem rgba(36, 58, 99, .05);
+}
+.range-title[data-v-43fd4b50], .list-title[data-v-43fd4b50], .day-label[data-v-43fd4b50], .picker-tab.active[data-v-43fd4b50], .nav-button[data-v-43fd4b50], .picker-heading[data-v-43fd4b50] { color: var(--theme-text) !important;
+}
+.range-detail[data-v-43fd4b50], .day-date[data-v-43fd4b50], .item-note[data-v-43fd4b50], .delete[data-v-43fd4b50], .picker-tab[data-v-43fd4b50], .week-cell uni-text[data-v-43fd4b50]:last-child { color: var(--theme-text-muted) !important;
+}
+.range-actions[data-v-43fd4b50] { background: var(--theme-primary-soft) !important;
+}
+.range-arrow[data-v-43fd4b50] { border-color: var(--theme-text-secondary) !important; background: transparent !important;
+}
+.range-arrow[data-v-43fd4b50]::before, .range-arrow[data-v-43fd4b50]::after { background: var(--theme-text-secondary) !important;
+}
+.summary-card[data-v-43fd4b50] { background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; box-shadow: 0 0.375rem 0.9375rem var(--theme-primary-shadow) !important;
+}
+.transaction-item[data-v-43fd4b50] { border-color: var(--theme-border) !important;
+}
+.transaction-item[data-v-43fd4b50]:active { background: var(--theme-primary-soft) !important;
+}
+.item-name[data-v-43fd4b50] { color: var(--theme-text-strong) !important;
+}
+.add-fab[data-v-43fd4b50] { border-color: var(--theme-page-bg) !important; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; box-shadow: 0 0.375rem 0.875rem var(--theme-primary-shadow) !important;
+}
+.add-fab[data-v-43fd4b50]:active { transform: translateX(-50%) scale(.94);
+}
+.picker-handle[data-v-43fd4b50] { background: var(--theme-border) !important;
+}
+.picker-tab.active[data-v-43fd4b50]::after, .date-cell.active[data-v-43fd4b50], .week-cell.active[data-v-43fd4b50] { background: var(--theme-primary) !important;
+}
+.date-cell.active[data-v-43fd4b50] { box-shadow: 0 0.25rem 0.5rem var(--theme-primary-shadow) !important;
+}
+.date-cell[data-v-43fd4b50] { color: var(--theme-text-strong) !important;
+}
+.week-cell[data-v-43fd4b50] { color: var(--theme-text-strong) !important; background: var(--theme-page-bg) !important;
+}
+.week-cell.active[data-v-43fd4b50], .week-cell.active uni-text[data-v-43fd4b50]:last-child { color: #fff !important;
 }

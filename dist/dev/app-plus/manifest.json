@@ -115,6 +115,7 @@
           "selectedIconPath": "/static/tabbar/profile-active.png"
         }
       ],
+      "custom": true,
       "backgroundColor": "#ffffff",
       "selectedIndex": 0,
       "shown": true

@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view class="page" :style="themeStore.cssVariables">
     <view class="book-header">
       <view class="back-button" @click="goBack" />
       <view class="book-title"><text>{{ editingId ? '编辑流水' : '默认账本' }}</text><text class="book-subtitle">{{ editingId ? '修改金额、备注或分类' : '记录每一笔收支' }}</text></view>
@@ -56,6 +56,7 @@ import { onLoad } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { formatDate } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
+import { themeStore } from '../../stores/theme'
 
 const CATEGORY_PAGE_SIZE = 16
 const categories = ref([])
@@ -223,4 +224,32 @@ async function submit() {
 .calendar-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }
 .calendar-panel { width: 100%; padding: 18rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); border-radius: 32rpx 32rpx 0 0; background: #fff; box-sizing: border-box; }
 .calendar-handle { width: 72rpx; height: 8rpx; margin: 0 auto 23rpx; border-radius: 10rpx; background: #e4e7ec; }.calendar-topbar { display: flex; align-items: baseline; justify-content: space-between; margin-bottom: 24rpx; }.calendar-title, .calendar-heading, .nav-button { color: #1d2939; }.calendar-title { font-size: 34rpx; font-weight: 700; }.calendar-current, .weekdays text { color: #98a2b3; }.calendar-current { font-size: 24rpx; }.calendar-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 26rpx; }.nav-button { width: 70rpx; font-size: 68rpx; line-height: 1; text-align: center; }.calendar-heading { font-size: 32rpx; font-weight: 700; }.weekdays, .calendar-grid { display: grid; grid-template-columns: repeat(7, 1fr); }.calendar-grid { grid-auto-rows: 86rpx; }.weekdays { margin-bottom: 12rpx; }.weekdays text { font-size: 24rpx; text-align: center; }.calendar-day { display: flex; align-items: center; justify-content: center; height: 74rpx; min-height: 0; margin: 5rpx; border-radius: 50%; color: #344054; font-size: 28rpx; }.calendar-day.calendar-empty { pointer-events: none; }.calendar-day.today { color: #1677ff; font-weight: 700; }.calendar-day.selected { color: #fff; background: #1677ff; box-shadow: 0 6rpx 14rpx rgba(22, 119, 255, .22); }.calendar-day.selected.today { color: #fff; }
+
+/* 主题覆盖：记账表单的容器、分类、键盘与日历统一跟随当前主题。 */
+.page { background: var(--theme-page-bg) !important; }
+.book-header, .type-switch, .category-section, .entry-panel, .calendar-panel { background: var(--theme-surface) !important; }
+.book-title, .calendar-title, .calendar-heading, .nav-button { color: var(--theme-text) !important; }
+.book-subtitle, .empty-category, .calendar-current, .weekdays text { color: var(--theme-text-muted) !important; }
+.back-button { background: var(--theme-primary-soft) !important; }
+.back-button::before { border-color: var(--theme-primary) !important; }
+.type { color: var(--theme-text-secondary) !important; }
+.type.active-expense, .type.active-income { color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; }
+.type.active-expense::after, .type.active-income::after { background: var(--theme-primary) !important; }
+.category-icon { border-color: var(--theme-border) !important; background: var(--theme-page-bg) !important; }
+.category-name { color: var(--theme-text-secondary) !important; }
+.category-item.selected .category-icon { border-color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; box-shadow: 0 6rpx 14rpx var(--theme-primary-shadow) !important; }
+.category-item.selected .category-name { color: var(--theme-primary) !important; }
+.category-dots text { background: var(--theme-border) !important; }
+.category-dots .active-dot { background: var(--theme-primary) !important; }
+.entry-panel { border-color: var(--theme-border) !important; }
+.note-input, .amount-display { background: var(--theme-page-bg) !important; }
+.note-input, .key, .calendar-day { color: var(--theme-text-strong) !important; }
+.note-input::placeholder { color: var(--theme-text-muted) !important; }
+.amount-display, .date-key, .utility-key { color: var(--theme-primary) !important; }
+.key { border-color: var(--theme-border) !important; background: var(--theme-surface) !important; }
+.key:active, .date-key, .utility-key { background: var(--theme-primary-soft) !important; }
+.submit-key { color: #fff !important; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; }
+.calendar-handle { background: var(--theme-border) !important; }
+.calendar-day.today { color: var(--theme-primary) !important; }
+.calendar-day.selected { color: #fff !important; background: var(--theme-primary) !important; box-shadow: 0 6rpx 14rpx var(--theme-primary-shadow) !important; }
 </style>
