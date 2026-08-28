@@ -66,7 +66,7 @@ if (uni.restoreGlobal) {
     /* HookFlags.PAGE */
   );
   var define_import_meta_env_default = {};
-  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "http://10.10.0.147:7002";
+  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "http://8.156.85.200:8080";
   const APP_TOKEN_KEY = "mechi_app_token";
   const APP_REFRESH_TOKEN_KEY = "mechi_app_refresh_token";
   const APP_PROFILE_KEY = "mechi_app_profile";
