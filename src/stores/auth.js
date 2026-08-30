@@ -20,6 +20,7 @@ export const authStore = reactive({
     this.setTokens(token, refreshToken)
     this.profile = profile
     uni.setStorageSync(APP_PROFILE_KEY, JSON.stringify(profile))
+    uni.$emit('ledger:invalidate', { hard: true })
   },
   setTokens(token, refreshToken) {
     this.token = token
@@ -38,6 +39,7 @@ export const authStore = reactive({
     uni.removeStorageSync(APP_TOKEN_KEY)
     uni.removeStorageSync(APP_REFRESH_TOKEN_KEY)
     uni.removeStorageSync(APP_PROFILE_KEY)
+    uni.$emit('ledger:invalidate', { hard: true })
   }
 })
 

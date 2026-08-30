@@ -70,10 +70,10 @@ function customByType(type) { return categories.value.filter(item => item.source
 function chooseImage() { uni.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'], success: uploadImage, fail: (error) => { if (!error.errMsg?.includes('cancel')) showRequestError(error) } }) }
 async function uploadImage({ tempFilePaths }) { const filePath = tempFilePaths?.[0]; if (!filePath) return; uploading.value = true; try { form.imageUrl = await appApi.uploadImage(filePath); uni.showToast({ title: '图片上传成功', icon: 'success' }) } catch (error) { showRequestError(error) } finally { uploading.value = false } }
 function clearImage() { form.imageUrl = '' }
-async function save() { if (!form.name) return uni.showToast({ title: '请输入分类名称', icon: 'none' }); if (uploading.value) return uni.showToast({ title: '图片上传中，请稍候', icon: 'none' }); try { if (editingId.value) await appApi.updateCategory(editingId.value, form); else await appApi.createCategory(form); reset(); await load(); uni.showToast({ title: '已保存', icon: 'success' }) } catch (error) { showRequestError(error) } }
+async function save() { if (!form.name) return uni.showToast({ title: '请输入分类名称', icon: 'none' }); if (uploading.value) return uni.showToast({ title: '图片上传中，请稍候', icon: 'none' }); try { if (editingId.value) await appApi.updateCategory(editingId.value, form); else await appApi.createCategory(form); uni.$emit('ledger:invalidate'); reset(); await load(); uni.showToast({ title: '已保存', icon: 'success' }) } catch (error) { showRequestError(error) } }
 function edit(item) { editingId.value = item.id; form.name = item.name; form.imageUrl = item.imageUrl || ''; form.transactionType = item.transactionType }
 function reset() { editingId.value = null; form.name = ''; form.imageUrl = ''; form.transactionType = 'EXPENSE' }
-function remove(item) { uni.showModal({ title: '删除自定义分类', content: `确定删除“${item.name}”吗？`, success: async ({ confirm }) => { if (!confirm) return; try { await appApi.deleteCategory(item.id); await load(); uni.showToast({ title: '已删除', icon: 'success' }) } catch (error) { showRequestError(error) } } }) }
+function remove(item) { uni.showModal({ title: '删除自定义分类', content: `确定删除“${item.name}”吗？`, success: async ({ confirm }) => { if (!confirm) return; try { await appApi.deleteCategory(item.id); uni.$emit('ledger:invalidate'); await load(); uni.showToast({ title: '已删除', icon: 'success' }) } catch (error) { showRequestError(error) } } }) }
 </script>
 
 <style scoped>

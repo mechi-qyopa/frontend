@@ -29,9 +29,9 @@
       <view id="chat-bottom" />
     </scroll-view>
 
-    <view class="composer">
+    <view :class="['composer', { floating: inputFocused && keyboardHeight > 0 }]" :style="{ bottom: keyboardHeight && inputFocused ? keyboardHeight + 'px' : undefined }">
       <view class="composer-field">
-        <input v-model="input" class="composer-input" maxlength="1000" confirm-type="send" placeholder="输入消息，向助手提问…" @confirm="send" />
+        <input v-model="input" class="composer-input" maxlength="1000" confirm-type="send" placeholder="输入消息，向助手提问…" :adjust-position="false" @focus="onInputFocus" @blur="onInputBlur" @confirm="send" />
         <text v-if="input.length" class="composer-count">{{ input.length }}/1000</text>
       </view>
       <button class="send" :class="{ 'send-ready': input.trim() && !sending }" :disabled="!input.trim() || sending" :loading="sending" @click="send">发送</button>
@@ -67,7 +67,7 @@
 
 <script setup>
 import { computed, nextTick, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { onShow, onUnload } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { authStore } from '../../stores/auth'
 import { themeStore } from '../../stores/theme'
@@ -88,6 +88,9 @@ const sessionId = ref('')
 const conversations = ref([])
 const conversationListVisible = ref(false)
 const userAvatarFailed = ref(false)
+const inputFocused = ref(false)
+const keyboardHeight = ref(0)
+let keyboardListener = null
 const userAvatar = computed(() => authStore.profile?.avatar || '')
 const userInitial = computed(() => (authStore.profile?.username || '我').slice(0, 1).toUpperCase())
 const activeConversationTitle = computed(() => {
@@ -108,6 +111,10 @@ onShow(async () => {
   ensureSession()
   await Promise.all([loadConversations(), loadHistory()])
 })
+if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height })
+onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
+function onInputFocus() { inputFocused.value = true; scrollBottom() }
+function onInputBlur() { inputFocused.value = false }
 
 function isUserMessage(item) { return item.role === 'USER' || item.role === 'user' }
 function createSessionId() { return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` }
@@ -242,7 +249,7 @@ function onStreamError(message) {
 </script>
 
 <style scoped>
-.chat-page { display: flex; flex-direction: column; height: calc(100vh - var(--window-top) - var(--tab-bar-height, var(--window-bottom))); background: #f5f7fb; }
+.chat-page { position: relative; display: flex; flex-direction: column; height: calc(100vh - var(--window-top) - var(--tab-bar-height, var(--window-bottom))); padding-bottom: calc(160rpx + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }
 /* #ifdef APP-PLUS */
 /* App 端页面高度由 script 内按系统信息以像素内联（appChatStyle），精确等于视口高 - tabBar(140rpx) - 底部安全区 */
 .composer { padding-bottom: 18rpx; }
@@ -273,7 +280,9 @@ function onStreamError(message) {
 .user { color: #fff; background: linear-gradient(135deg, #1677ff, #3e91ff); box-shadow: 0 8rpx 18rpx rgba(22, 119, 255, .16); }
 .assistant { color: #344054; background: #fff; border: 1rpx solid #edf0f5; box-shadow: 0 6rpx 20rpx rgba(29, 41, 57, .05); }
 .typing-cursor { display: inline-block; margin-left: 4rpx; color: #1677ff; animation: blink 1s step-end infinite; }
-.composer { display: flex; align-items: center; flex-shrink: 0; gap: 16rpx; padding: 18rpx 24rpx calc(18rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #edf0f5; background: rgba(255, 255, 255, .97); box-shadow: 0 -6rpx 22rpx rgba(29, 41, 57, .05); }
+.composer { position: fixed; right: 24rpx; bottom: 0; left: 24rpx; z-index: 20; display: flex; align-items: center; flex-shrink: 0; gap: 16rpx; margin-bottom: var(--tab-bar-height, 0rpx); padding: 18rpx 20rpx calc(18rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #edf0f5; border-radius: 28rpx; background: rgba(255, 255, 255, .97); box-shadow: 0 -6rpx 22rpx rgba(29, 41, 57, .05); box-sizing: border-box; }
+/* 键盘悬浮态：紧贴键盘上沿，去掉 tabBar 让位边距与底部安全区 padding，避免输入框和键盘之间出现大空隙 */
+.composer.floating { margin-bottom: 0; padding-bottom: 18rpx; }
 .composer-field { display: flex; align-items: center; flex: 1; min-width: 0; height: 82rpx; padding: 0 20rpx 0 24rpx; border: 2rpx solid transparent; border-radius: var(--theme-radius-control, 24rpx); background: #f2f4f7; box-sizing: border-box; transition: border-color .2s, background .2s; }
 .composer-field:focus-within { border-color: #a9ceff; background: #fff; }
 .composer-input { flex: 1; min-width: 0; height: 78rpx; color: #344054; font-size: 28rpx; }
@@ -282,7 +291,7 @@ function onStreamError(message) {
 .send::after { border: 0; }
 .send-ready { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .2); }
 .send-ready:active { transform: scale(.96); }
-.conversation-mask { position: fixed; z-index: 10; top: 0; right: 0; bottom: calc(100rpx + env(safe-area-inset-bottom)); left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }
+.conversation-mask { position: fixed; z-index: 10; top: 0; right: 24rpx; bottom: calc(148rpx + var(--tab-bar-height, 0rpx) + env(safe-area-inset-bottom)); left: 24rpx; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); border-radius: 28rpx 28rpx 0 0; }
 .conversation-panel { display: flex; width: 100%; max-height: 76vh; flex-direction: column; padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; box-sizing: border-box; }
 .conversation-panel-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22rpx; }
 .conversation-panel-title { color: #1d2939; font-size: 34rpx; font-weight: 700; }
@@ -310,8 +319,8 @@ function onStreamError(message) {
 .welcome-avatar, .assistant-avatar, .user { box-shadow: 0 8rpx 20rpx var(--theme-primary-shadow) !important; }
 .user-avatar, .user-avatar-image { color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; }
 .typing-cursor, .conversation-active-mark { color: var(--theme-primary) !important; }
-.composer-field { background: var(--theme-page-bg) !important; }
-.composer-field:focus-within { border-color: var(--theme-primary) !important; background: var(--theme-surface) !important; box-shadow: 0 0 0 5rpx var(--theme-primary-soft); }
+.composer-field { background: var(--theme-border) !important; }
+.composer-field:focus-within { border-color: var(--theme-primary) !important; background: var(--theme-border) !important; box-shadow: 0 0 0 5rpx var(--theme-primary-soft); }
 .send { color: var(--theme-text-muted) !important; background: var(--theme-border) !important; }
 .send-ready, .conversation-create { color: #fff !important; background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; box-shadow: 0 8rpx 18rpx var(--theme-primary-shadow) !important; }
 .conversation-item { border-color: var(--theme-border) !important; }

@@ -91,7 +91,9 @@
 }.day-group[data-v-43fd4b50] { margin: 0 0.75rem 0.875rem;
 }.day-header[data-v-43fd4b50] { display: flex; align-items: center; justify-content: space-between; padding: 0.125rem 0.125rem 0.4375rem;
 }.day-label[data-v-43fd4b50] { color: #344054; font-size: 0.84375rem; font-weight: 600;
+}.day-meta[data-v-43fd4b50] { display: flex; align-items: center; gap: 0.375rem;
 }.day-date[data-v-43fd4b50] { color: #98a2b3; font-size: 0.71875rem;
+}.day-total[data-v-43fd4b50] { font-size: 0.71875rem; font-weight: 500;
 }.transaction-list[data-v-43fd4b50] { overflow: hidden; border-radius: 0.75rem; background: #fff;
 }.transaction-item[data-v-43fd4b50] { display: flex; align-items: center; min-height: 3.9375rem; padding: 0 0.6875rem; border-bottom: 0.03125rem solid #f0f2f5;
 }.transaction-item[data-v-43fd4b50]:last-child { border: 0;

@@ -11,9 +11,9 @@
     { "path": "pages/ledger/index", "style": { "navigationBarTitleText": "账本", "navigationStyle": "custom" } },
     { "path": "pages/ledger/expense-statistics", "style": { "navigationBarTitleText": "费用统计", "navigationStyle": "custom" } },
     { "path": "pages/ledger/category-transactions", "style": { "navigationBarTitleText": "分类流水" } },
-    { "path": "pages/ledger/transaction-form", "style": { "navigationBarTitleText": "新增流水", "navigationStyle": "custom" } },
+    { "path": "pages/ledger/transaction-form", "style": { "navigationBarTitleText": "新增流水", "navigationStyle": "custom", "app-plus": { "adjustPan": true }, "mp-weixin": { "disableScroll": true } } },
     { "path": "pages/ledger/categories", "style": { "navigationBarTitleText": "收支分类" } },
-    { "path": "pages/chat/index", "style": { "navigationBarTitleText": "AI 助手", "navigationStyle": "custom" } },
+    { "path": "pages/chat/index", "style": { "navigationBarTitleText": "AI 助手", "navigationStyle": "custom", "app-plus": { "adjustPan": true }, "mp-weixin": { "disableScroll": true } } },
     { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } },
     { "path": "pages/profile/theme-settings", "style": { "navigationBarTitleText": "主题外观" } },
     { "path": "pages/profile/info", "style": { "navigationBarTitleText": "个人信息" } }

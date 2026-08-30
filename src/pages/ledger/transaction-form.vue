@@ -28,12 +28,12 @@
       </view>
     </view>
 
-    <view class="entry-panel">
+    <view class="entry-panel" :style="{ bottom: keyboardHeight && noteFocused ? keyboardHeight + 'px' : undefined }">
       <view class="entry-row">
-        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" />
+        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" :adjust-position="false" @focus="onNoteFocus" @blur="onNoteBlur" @confirm="onNoteBlur" />
         <view class="amount-display"><text class="currency">¥</text><text>{{ displayAmount }}</text></view>
       </view>
-      <view class="keypad">
+      <view v-show="!noteFocused" class="keypad">
         <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)">{{ key.action === 'submit' && submitting ? '保存中' : key.action === 'submit' && editingId ? '保存修改' : key.label }}</view>
       </view>
     </view>
@@ -52,7 +52,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { onLoad } from '@dcloudio/uni-app'
+import { onLoad, onUnload } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { formatDate } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
@@ -68,6 +68,9 @@ const calendarVisible = ref(false)
 const calendarYear = ref(new Date().getFullYear())
 const calendarMonth = ref(new Date().getMonth())
 const amountExpression = ref('')
+const noteFocused = ref(false)
+const keyboardHeight = ref(0)
+let keyboardListener = null
 const weekdays = ['一', '二', '三', '四', '五', '六', '日']
 const form = reactive({ categoryId: null, categorySource: null, transactionType: 'EXPENSE', amount: '', occurredOn: formatDate(new Date()), note: '' })
 const keypadKeys = [
@@ -91,7 +94,11 @@ const calendarCells = computed(() => {
 })
 
 onLoad(load)
+if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height })
+onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
 function goBack() { uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: '/pages/ledger/index' }) }) }
+function onNoteFocus() { noteFocused.value = true }
+function onNoteBlur() { noteFocused.value = false }
 async function load(options = {}) {
   const id = Number(options.id)
   const validId = Number.isInteger(id) && id > 0
@@ -181,14 +188,17 @@ async function submit() {
     const payload = { ...form, amount: form.amount, note: form.note || null }
     if (editingId.value) await appApi.updateTransaction(editingId.value, payload)
     else await appApi.createTransaction(payload)
+    uni.$emit('ledger:invalidate')
     uni.showToast({ title: editingId.value ? '已更新' : '已保存', icon: 'success' })
-    setTimeout(() => uni.navigateBack(), 450)
+    // 编辑完成后自动返回；新建保存后留在本页并清空金额备注，支持连续记账，由用户手动返回
+    if (editingId.value) setTimeout(() => uni.navigateBack(), 450)
+    else { amountExpression.value = ''; form.note = '' }
   } catch (error) { showRequestError(error) } finally { submitting.value = false }
 }
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; overflow: hidden; padding-top: calc(16rpx + env(safe-area-inset-top)); background: #f5f7fb; box-sizing: border-box; }
+.page { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; overflow: hidden; padding-top: calc(var(--status-bar-height, 0) + 16rpx + env(safe-area-inset-top)); padding-bottom: calc(600rpx + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }
 .book-header { display: flex; align-items: center; margin: 0 24rpx 20rpx; padding: 24rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
 .back-button { position: relative; display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; flex: 0 0 64rpx; border-radius: 16rpx; background: #eff6ff; }
 .back-button::before { width: 16rpx; height: 16rpx; margin-left: 6rpx; border-bottom: 4rpx solid #1677ff; border-left: 4rpx solid #1677ff; content: ''; transform: rotate(45deg); }
@@ -213,7 +223,7 @@ async function submit() {
 .category-dots { display: flex; justify-content: center; gap: 13rpx; margin: 28rpx 0 4rpx; }
 .category-dots text { display: block; width: 11rpx; height: 11rpx; border-radius: 50%; background: #d0d5dd; }
 .category-dots .active-dot { width: 14rpx; height: 14rpx; margin-top: -2rpx; background: #1677ff; }
-.entry-panel { flex: 0 0 auto; margin-top: auto; padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e4e7ec; background: #fff; box-shadow: 0 -8rpx 24rpx rgba(36, 58, 99, .06); }
+.entry-panel { position: fixed; right: 0; bottom: 0; left: 0; z-index: 20; padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e4e7ec; background: #fff; box-shadow: 0 -8rpx 24rpx rgba(36, 58, 99, .06); }
 .entry-row { display: flex; align-items: center; height: 82rpx; margin-bottom: 16rpx; }
 .note-input { flex: 1; height: 82rpx; min-width: 0; padding: 0 16rpx; border: 0; border-radius: 16rpx 0 0 16rpx; color: #344054; background: #f7f8fa; font-size: 27rpx; box-sizing: border-box; }
 .amount-display { display: flex; align-items: center; justify-content: flex-end; min-width: 190rpx; height: 82rpx; padding: 0 16rpx 0 2rpx; border-radius: 0 16rpx 16rpx 0; color: #1677ff; background: #f7f8fa; font-size: 40rpx; font-weight: 600; box-sizing: border-box; }
