@@ -16,7 +16,7 @@
         <swiper-item v-for="(page, pageIndex) in categoryPages" :key="pageIndex">
           <view class="category-grid">
             <view v-for="item in page" :key="`${item.source}-${item.id}`" :class="['category-item', { selected: isSelectedCategory(item) }]" @click="selectCategory(item)">
-              <view class="category-icon"><image v-if="shouldShowImage(item)" class="category-image" :src="item.imageUrl" mode="aspectFill" @error="markImageLoadFailed(item)" /><text v-else>{{ categoryIcon(item.name) }}</text></view>
+              <view class="category-icon"><text class="icon-emoji">{{ categoryIcon(item.name, form.transactionType) }}</text><image v-if="item.imageUrl" class="category-image" :src="item.imageUrl" mode="aspectFill" /></view>
               <text class="category-name">{{ item.name }}</text>
             </view>
           </view>
@@ -28,6 +28,7 @@
       </view>
     </view>
 
+    <view v-if="noteFocused && keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
     <view class="entry-panel" :style="{ bottom: keyboardHeight && noteFocused ? keyboardHeight + 'px' : undefined }">
       <view class="entry-row">
         <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" :adjust-position="false" @focus="onNoteFocus" @blur="onNoteBlur" @confirm="onNoteBlur" />
@@ -57,8 +58,9 @@ import { appApi } from '../../api/app'
 import { formatDate } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
 import { themeStore } from '../../stores/theme'
+import { categoryIcon } from '../../utils/category-icon'
 
-const CATEGORY_PAGE_SIZE = 16
+const CATEGORY_PAGE_SIZE = 12
 const categories = ref([])
 const currentCategoryPage = ref(0)
 const failedImageKeys = ref(new Set())
@@ -99,6 +101,7 @@ onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
 function goBack() { uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: '/pages/ledger/index' }) }) }
 function onNoteFocus() { noteFocused.value = true }
 function onNoteBlur() { noteFocused.value = false }
+function dismissKeyboard() { if (typeof uni.hideKeyboard === 'function') uni.hideKeyboard() }
 async function load(options = {}) {
   const id = Number(options.id)
   const validId = Number.isInteger(id) && id > 0
@@ -134,10 +137,7 @@ function isSelectedCategory(item) { return item.id === form.categoryId && item.s
 function categoryKey(item) { return `${item.source}-${item.id}` }
 function shouldShowImage(item) { return Boolean(item.imageUrl) && !failedImageKeys.value.has(categoryKey(item)) }
 function markImageLoadFailed(item) { failedImageKeys.value = new Set([...failedImageKeys.value, categoryKey(item)]) }
-function categoryIcon(name) {
-  const icons = { 餐饮: '🍱', 购物: '🛍️', 日用: '🧻', 交通: '🚌', 蔬菜: '🥬', 水果: '🍎', 零食: '🧁', 运动: '🛼', 娱乐: '🎮', 通讯: '📞', 服饰: '👕', 美容: '🪞', 工资: '💰', 奖金: '🎁', 理财: '📈', 退款: '↩️' }
-  return icons[name] || (form.transactionType === 'EXPENSE' ? '◌' : '＋')
-}
+
 function evaluateExpression(expression) {
   if (!/^\d+(?:\.\d{1,2})?(?:[+-]\d+(?:\.\d{1,2})?)*$/.test(expression)) return null
   const terms = expression.match(/[+-]?\d+(?:\.\d{1,2})?/g)
@@ -198,7 +198,7 @@ async function submit() {
 </script>
 
 <style scoped>
-.page { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; overflow: hidden; padding-top: calc(var(--status-bar-height, 0) + 16rpx + env(safe-area-inset-top)); padding-bottom: calc(600rpx + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }
+.page { display: flex; flex-direction: column; height: 100vh; min-height: 100vh; overflow: hidden; padding-top: calc(max(var(--status-bar-height, 0px), env(safe-area-inset-top, 0px)) + 16rpx); padding-bottom: calc(600rpx + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }
 .book-header { display: flex; align-items: center; margin: 0 24rpx 20rpx; padding: 24rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
 .back-button { position: relative; display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; flex: 0 0 64rpx; border-radius: 16rpx; background: #eff6ff; }
 .back-button::before { width: 16rpx; height: 16rpx; margin-left: 6rpx; border-bottom: 4rpx solid #1677ff; border-left: 4rpx solid #1677ff; content: ''; transform: rotate(45deg); }
@@ -210,16 +210,17 @@ async function submit() {
 .type.active-expense, .type.active-income { color: #1677ff; background: #eff6ff; }
 .type.active-expense::after, .type.active-income::after { position: absolute; right: 45%; bottom: 8rpx; left: 45%; height: 5rpx; border-radius: 8rpx; background: #1677ff; content: ''; }
 .category-section { flex: 1; min-height: 0; margin: 0 24rpx 20rpx; padding: 28rpx; overflow: hidden; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
-.category-swiper { height: 620rpx; }
-.category-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(4, auto); row-gap: 28rpx; column-gap: 16rpx; }
+.category-swiper { height: 500rpx; }
+.category-grid { display: grid; grid-template-columns: repeat(4, 1fr); grid-template-rows: repeat(3, auto); row-gap: 28rpx; column-gap: 16rpx; padding: 12rpx 6rpx; box-sizing: border-box; }
 .category-item { display: flex; flex-direction: column; align-items: center; min-width: 0; }
-.category-icon { display: flex; align-items: center; justify-content: center; width: 94rpx; height: 94rpx; overflow: hidden; border: 2rpx solid #e4e7ec; border-radius: 50%; background: #f8fafc; box-sizing: border-box; transition: transform .16s ease; }
-.category-image { width: 100%; height: 100%; }
-.category-icon text { font-size: 48rpx; line-height: 1; filter: saturate(.85); }
+.category-icon { position: relative; display: flex; align-items: center; justify-content: center; width: 94rpx; height: 94rpx; overflow: hidden; border: 2rpx solid #e4e7ec; border-radius: 50%; background: #f8fafc; box-sizing: border-box; transition: transform .16s ease; }
+.category-icon .icon-emoji { font-size: 48rpx; line-height: 1; filter: saturate(.85); }
+.category-image { position: absolute; inset: 0; width: 100%; height: 100%; }
 .category-name { width: 100%; margin-top: 8rpx; overflow: hidden; color: #475467; font-size: 24rpx; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .category-item.selected .category-icon { border: 4rpx solid #1677ff; background: #eff6ff; box-shadow: 0 6rpx 14rpx rgba(22, 119, 255, .16); transform: scale(1.04); }
 .category-item.selected .category-name { color: #1677ff; }
 .empty-category { padding-top: 134rpx; color: #98a2b3; text-align: center; }
+.keyboard-mask { position: fixed; z-index: 19; top: 0; right: 0; bottom: 0; left: 0; }
 .category-dots { display: flex; justify-content: center; gap: 13rpx; margin: 28rpx 0 4rpx; }
 .category-dots text { display: block; width: 11rpx; height: 11rpx; border-radius: 50%; background: #d0d5dd; }
 .category-dots .active-dot { width: 14rpx; height: 14rpx; margin-top: -2rpx; background: #1677ff; }

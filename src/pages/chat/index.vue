@@ -29,6 +29,7 @@
       <view id="chat-bottom" />
     </scroll-view>
 
+    <view v-if="inputFocused && keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
     <view :class="['composer', { floating: inputFocused && keyboardHeight > 0 }]" :style="{ bottom: keyboardHeight && inputFocused ? keyboardHeight + 'px' : undefined }">
       <view class="composer-field">
         <input v-model="input" class="composer-input" maxlength="1000" confirm-type="send" placeholder="输入消息，向助手提问…" :adjust-position="false" @focus="onInputFocus" @blur="onInputBlur" @confirm="send" />
@@ -101,7 +102,13 @@ const activeConversationTitle = computed(() => {
 // App 端页面高度 = 视口高 - tabBar 实测渲染高 + 4px 保险（超出部分被不透明 tabBar 盖住，杜绝取整误差露出白缝）。
 const { windowWidth, windowHeight, safeAreaInsets } = uni.getSystemInfoSync()
 const fallbackTabBarPx = Math.round((140 * windowWidth) / 750) + (safeAreaInsets?.bottom || 0)
+// 键盘悬浮态输入栏实际高度（18+82+18rpx + 1rpx 边框），消息区底部据此让位
+const composerPx = Math.ceil((119 * windowWidth) / 750)
 const appChatStyle = computed(() => {
+  if (inputFocused.value && keyboardHeight.value > 0) {
+    // 键盘弹起：页面底边收缩到键盘上沿，padding 让消息区底边正好贴住输入栏顶部，滚到底即可见最新消息
+    return { height: `${Math.max(windowHeight - keyboardHeight.value, 0)}px`, paddingBottom: `${composerPx}px` }
+  }
   const tabBarPx = themeStore.appTabBar.heightPx || fallbackTabBarPx
   return { height: `${Math.max(windowHeight - tabBarPx + 4, 0)}px` }
 })
@@ -111,10 +118,11 @@ onShow(async () => {
   ensureSession()
   await Promise.all([loadConversations(), loadHistory()])
 })
-if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height })
+if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height; if (height > 0 && inputFocused.value) scrollBottom() })
 onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
 function onInputFocus() { inputFocused.value = true; scrollBottom() }
 function onInputBlur() { inputFocused.value = false }
+function dismissKeyboard() { if (typeof uni.hideKeyboard === 'function') uni.hideKeyboard() }
 
 function isUserMessage(item) { return item.role === 'USER' || item.role === 'user' }
 function createSessionId() { return `chat_${Date.now()}_${Math.random().toString(36).slice(2, 10)}` }
@@ -281,6 +289,7 @@ function onStreamError(message) {
 .assistant { color: #344054; background: #fff; border: 1rpx solid #edf0f5; box-shadow: 0 6rpx 20rpx rgba(29, 41, 57, .05); }
 .typing-cursor { display: inline-block; margin-left: 4rpx; color: #1677ff; animation: blink 1s step-end infinite; }
 .composer { position: fixed; right: 24rpx; bottom: 0; left: 24rpx; z-index: 20; display: flex; align-items: center; flex-shrink: 0; gap: 16rpx; margin-bottom: var(--tab-bar-height, 0rpx); padding: 18rpx 20rpx calc(18rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #edf0f5; border-radius: 28rpx; background: rgba(255, 255, 255, .97); box-shadow: 0 -6rpx 22rpx rgba(29, 41, 57, .05); box-sizing: border-box; }
+.keyboard-mask { position: fixed; z-index: 19; top: 0; right: 0; bottom: 0; left: 0; }
 /* 键盘悬浮态：紧贴键盘上沿，去掉 tabBar 让位边距与底部安全区 padding，避免输入框和键盘之间出现大空隙 */
 .composer.floating { margin-bottom: 0; padding-bottom: 18rpx; }
 .composer-field { display: flex; align-items: center; flex: 1; min-width: 0; height: 82rpx; padding: 0 20rpx 0 24rpx; border: 2rpx solid transparent; border-radius: var(--theme-radius-control, 24rpx); background: #f2f4f7; box-sizing: border-box; transition: border-color .2s, background .2s; }

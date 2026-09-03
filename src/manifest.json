@@ -1,7 +1,7 @@
 {
-    "name" : "美记账",
+    "name" : "Bookkeeping",
     "appid" : "__UNI__DAB5E07",
-    "description" : "美记账 App 客户端",
+    "description" : "Bookkeeping App 客户端",
     "versionName" : "0.1.0",
     "versionCode" : "100",
     "transformPx" : false,
