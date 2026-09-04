@@ -44,7 +44,7 @@ const transactionGroups = computed(() => {
 onLoad((options) => {
   categorySource.value = options.categorySource || ''
   categoryId.value = options.categoryId || ''
-  categoryName.value = options.name || '已删除分类'
+  categoryName.value = safeDecode(options.name) || '已删除分类'
   startDate.value = options.startDate || ''
   endDate.value = options.endDate || ''
   valid.value = Boolean(categorySource.value && categoryId.value && startDate.value && endDate.value && startDate.value <= endDate.value)
@@ -81,6 +81,7 @@ async function load() {
   }
 }
 
+function safeDecode(value) { try { return value ? decodeURIComponent(value) : '' } catch { return value } }
 function formatDayLabel(dateString) {
   const year = Number(dateString.slice(0, 4))
   const month = Number(dateString.slice(5, 7)) - 1

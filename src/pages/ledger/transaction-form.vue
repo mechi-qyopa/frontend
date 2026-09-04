@@ -28,13 +28,13 @@
       </view>
     </view>
 
-    <view v-if="noteFocused && keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
-    <view class="entry-panel" :style="{ bottom: keyboardHeight && noteFocused ? keyboardHeight + 'px' : undefined }">
+    <view v-if="keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
+    <view class="entry-panel" :style="{ bottom: keyboardHeight ? keyboardHeight + 'px' : undefined }">
       <view class="entry-row">
-        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" :adjust-position="false" @focus="onNoteFocus" @blur="onNoteBlur" @confirm="onNoteBlur" />
+        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" :adjust-position="false" @confirm="dismissKeyboard" />
         <view class="amount-display"><text class="currency">¥</text><text>{{ displayAmount }}</text></view>
       </view>
-      <view v-show="!noteFocused" class="keypad">
+      <view v-show="keyboardHeight <= 0" class="keypad">
         <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)">{{ key.action === 'submit' && submitting ? '保存中' : key.action === 'submit' && editingId ? '保存修改' : key.label }}</view>
       </view>
     </view>
@@ -70,7 +70,6 @@ const calendarVisible = ref(false)
 const calendarYear = ref(new Date().getFullYear())
 const calendarMonth = ref(new Date().getMonth())
 const amountExpression = ref('')
-const noteFocused = ref(false)
 const keyboardHeight = ref(0)
 let keyboardListener = null
 const weekdays = ['一', '二', '三', '四', '五', '六', '日']
@@ -99,8 +98,6 @@ onLoad(load)
 if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height })
 onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
 function goBack() { uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: '/pages/ledger/index' }) }) }
-function onNoteFocus() { noteFocused.value = true }
-function onNoteBlur() { noteFocused.value = false }
 function dismissKeyboard() { if (typeof uni.hideKeyboard === 'function') uni.hideKeyboard() }
 async function load(options = {}) {
   const id = Number(options.id)

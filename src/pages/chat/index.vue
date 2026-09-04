@@ -115,10 +115,13 @@ const appChatStyle = computed(() => {
 // #endif
 
 onShow(async () => {
+  // 页面重新可见时键盘必然已收起；重置悬浮状态，防止 keyboardHeight 残留导致输入框悬空
+  keyboardHeight.value = 0
+  inputFocused.value = false
   ensureSession()
   await Promise.all([loadConversations(), loadHistory()])
 })
-if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height; if (height > 0 && inputFocused.value) scrollBottom() })
+if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height; if (height > 0) { if (inputFocused.value) scrollBottom() } else inputFocused.value = false })
 onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
 function onInputFocus() { inputFocused.value = true; scrollBottom() }
 function onInputBlur() { inputFocused.value = false }

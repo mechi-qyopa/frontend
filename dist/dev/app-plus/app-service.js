@@ -7087,7 +7087,7 @@ if (uni.restoreGlobal) {
       onLoad((options2) => {
         categorySource.value = options2.categorySource || "";
         categoryId.value = options2.categoryId || "";
-        categoryName.value = options2.name || "已删除分类";
+        categoryName.value = safeDecode(options2.name) || "已删除分类";
         startDate.value = options2.startDate || "";
         endDate.value = options2.endDate || "";
         valid.value = Boolean(categorySource.value && categoryId.value && startDate.value && endDate.value && startDate.value <= endDate.value);
@@ -7123,6 +7123,13 @@ if (uni.restoreGlobal) {
         } finally {
           if (currentRequest === requestId)
             loading.value = false;
+        }
+      }
+      function safeDecode(value2) {
+        try {
+          return value2 ? decodeURIComponent(value2) : "";
+        } catch {
+          return value2;
         }
       }
       function formatDayLabel(dateString) {
@@ -7167,7 +7174,7 @@ if (uni.restoreGlobal) {
         return requestId;
       }, set requestId(v2) {
         requestId = v2;
-      }, weekdayLabels, categoryMap, transactionGroups, load, formatDayLabel, resolveCategoryName, getCategoryIcon, getCategoryImage, goEdit, remove: remove2, computed: vue.computed, ref: vue.ref, get onLoad() {
+      }, weekdayLabels, categoryMap, transactionGroups, load, safeDecode, formatDayLabel, resolveCategoryName, getCategoryIcon, getCategoryImage, goEdit, remove: remove2, computed: vue.computed, ref: vue.ref, get onLoad() {
         return onLoad;
       }, get onShow() {
         return onShow;
@@ -7344,7 +7351,6 @@ if (uni.restoreGlobal) {
       const calendarYear = vue.ref((/* @__PURE__ */ new Date()).getFullYear());
       const calendarMonth = vue.ref((/* @__PURE__ */ new Date()).getMonth());
       const amountExpression = vue.ref("");
-      const noteFocused = vue.ref(false);
       const keyboardHeight = vue.ref(0);
       let keyboardListener = null;
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
@@ -7389,12 +7395,6 @@ if (uni.restoreGlobal) {
       });
       function goBack() {
         uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: "/pages/ledger/index" }) });
-      }
-      function onNoteFocus() {
-        noteFocused.value = true;
-      }
-      function onNoteBlur() {
-        noteFocused.value = false;
       }
       function dismissKeyboard() {
         if (typeof uni.hideKeyboard === "function")
@@ -7556,11 +7556,11 @@ if (uni.restoreGlobal) {
           submitting.value = false;
         }
       }
-      const __returned__ = { CATEGORY_PAGE_SIZE, categories, currentCategoryPage, failedImageKeys, editingId, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, noteFocused, keyboardHeight, get keyboardListener() {
+      const __returned__ = { CATEGORY_PAGE_SIZE, categories, currentCategoryPage, failedImageKeys, editingId, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, keyboardHeight, get keyboardListener() {
         return keyboardListener;
       }, set keyboardListener(v2) {
         keyboardListener = v2;
-      }, weekdays, form, keypadKeys, filteredCategories, categoryPages, displayAmount, calendarCells, goBack, onNoteFocus, onNoteBlur, dismissKeyboard, load, selectType, onCategoryPageChange, selectCategory, isSelectedCategory, categoryKey, shouldShowImage, markImageLoadFailed, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
+      }, weekdays, form, keypadKeys, filteredCategories, categoryPages, displayAmount, calendarCells, goBack, dismissKeyboard, load, selectType, onCategoryPageChange, selectCategory, isSelectedCategory, categoryKey, shouldShowImage, markImageLoadFailed, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
         return onLoad;
       }, get onUnload() {
         return onUnload;
@@ -7725,7 +7725,7 @@ if (uni.restoreGlobal) {
             ))
           ])) : vue.createCommentVNode("v-if", true)
         ]),
-        $setup.noteFocused && $setup.keyboardHeight > 0 ? (vue.openBlock(), vue.createElementBlock(
+        $setup.keyboardHeight > 0 ? (vue.openBlock(), vue.createElementBlock(
           "view",
           {
             key: 0,
@@ -7742,7 +7742,7 @@ if (uni.restoreGlobal) {
           "view",
           {
             class: "entry-panel",
-            style: vue.normalizeStyle({ bottom: $setup.keyboardHeight && $setup.noteFocused ? $setup.keyboardHeight + "px" : void 0 })
+            style: vue.normalizeStyle({ bottom: $setup.keyboardHeight ? $setup.keyboardHeight + "px" : void 0 })
           },
           [
             vue.createElementVNode("view", { class: "entry-row" }, [
@@ -7754,9 +7754,7 @@ if (uni.restoreGlobal) {
                   placeholder: "点击输入备注...",
                   maxlength: "255",
                   "adjust-position": false,
-                  onFocus: $setup.onNoteFocus,
-                  onBlur: $setup.onNoteBlur,
-                  onConfirm: $setup.onNoteBlur
+                  onConfirm: $setup.dismissKeyboard
                 },
                 null,
                 544
@@ -7801,7 +7799,7 @@ if (uni.restoreGlobal) {
               512
               /* NEED_PATCH */
             ), [
-              [vue.vShow, !$setup.noteFocused]
+              [vue.vShow, $setup.keyboardHeight <= 0]
             ])
           ],
           4
@@ -8277,14 +8275,19 @@ if (uni.restoreGlobal) {
         return { height: `${Math.max(windowHeight - tabBarPx + 4, 0)}px` };
       });
       onShow(async () => {
+        keyboardHeight.value = 0;
+        inputFocused.value = false;
         ensureSession2();
         await Promise.all([loadConversations(), loadHistory()]);
       });
       if (typeof uni.onKeyboardHeightChange === "function")
         keyboardListener = uni.onKeyboardHeightChange(({ height }) => {
           keyboardHeight.value = height;
-          if (height > 0 && inputFocused.value)
-            scrollBottom();
+          if (height > 0) {
+            if (inputFocused.value)
+              scrollBottom();
+          } else
+            inputFocused.value = false;
         });
       onUnload(() => {
         if (keyboardListener == null ? void 0 : keyboardListener.off)
