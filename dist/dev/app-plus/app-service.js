@@ -394,7 +394,7 @@ if (uni.restoreGlobal) {
   function uploadImage(filePath, retried = false) {
     return new Promise((resolve, reject) => {
       uni.uploadFile({
-        url: `${API_BASE_URL}/api/v1/app/storage/images`,
+        url: `${API_BASE_URL}/api/v1/app/local-storage/images`,
         filePath,
         name: "file",
         header: {
@@ -430,6 +430,80 @@ if (uni.restoreGlobal) {
       });
     });
   }
+  function exportTransactions(retried = false) {
+    const url2 = `${API_BASE_URL}/api/v1/app/bookkeeping/transactions/export`;
+    return new Promise((resolve, reject) => {
+      uni.downloadFile({
+        url: url2,
+        header: authStore.token ? { "X-App-Token": authStore.token } : {},
+        success: ({ statusCode, tempFilePath }) => {
+          if (statusCode === 401 && !retried) {
+            refreshAccessToken().then(() => exportTransactions(true)).then(resolve).catch((error2) => {
+              redirectToLogin();
+              reject(error2);
+            });
+            return;
+          }
+          if (statusCode === 401) {
+            redirectToLogin();
+            reject(new Error("登录已过期，请重新登录"));
+            return;
+          }
+          if (statusCode !== 200) {
+            reject(new Error("导出失败，请稍后重试"));
+            return;
+          }
+          uni.openDocument({
+            filePath: tempFilePath,
+            fileType: "xlsx",
+            showMenu: true,
+            success: resolve,
+            fail: () => reject(new Error("未找到可打开 Excel 文件的应用"))
+          });
+        },
+        fail: () => reject(new Error("导出失败，请检查网络连接"))
+      });
+    });
+  }
+  function importTransactions(filePath, retried = false) {
+    return new Promise((resolve, reject) => {
+      uni.uploadFile({
+        url: `${API_BASE_URL}/api/v1/app/bookkeeping/transactions/import`,
+        filePath,
+        name: "file",
+        header: {
+          Accept: "application/json",
+          ...authStore.token ? { "X-App-Token": authStore.token } : {}
+        },
+        success: ({ statusCode, data }) => {
+          let body;
+          try {
+            body = typeof data === "string" ? JSON.parse(data) : data;
+          } catch {
+            body = null;
+          }
+          if (statusCode === 401 && !retried) {
+            refreshAccessToken().then(() => importTransactions(filePath, true)).then(resolve).catch((error2) => {
+              redirectToLogin();
+              reject(error2);
+            });
+            return;
+          }
+          if (statusCode === 401) {
+            redirectToLogin();
+            reject(new Error("登录已过期，请重新登录"));
+            return;
+          }
+          if (statusCode < 200 || statusCode >= 300 || !body || body.code !== 0) {
+            reject(new Error((body == null ? void 0 : body.msg) || "导入失败，请稍后重试"));
+            return;
+          }
+          resolve(body.data);
+        },
+        fail: () => reject(new Error("导入失败，请检查网络连接"))
+      });
+    });
+  }
   const appApi = {
     register: (data) => request({ url: "/api/v1/app/register", method: "POST", data }),
     login: (data) => request({ url: "/api/v1/app/login", method: "POST", data, retryOnUnauthorized: false }),
@@ -452,6 +526,8 @@ if (uni.restoreGlobal) {
     listChatConversations: () => request({ url: "/api/v1/app/chat/conversations" }),
     chatHistory: (sessionId) => request({ url: "/api/v1/app/chat/history", data: { sessionId } }),
     uploadImage,
+    exportTransactions,
+    importTransactions,
     listCommands: () => request({ url: "/api/v1/app/command/list" })
   };
   const _export_sfc = (sfc, props2) => {
@@ -461,7 +537,7 @@ if (uni.restoreGlobal) {
     }
     return target;
   };
-  const _sfc_main$2l = {
+  const _sfc_main$2m = {
     __name: "login",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -505,7 +581,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2k(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2l(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
       $setup.loginReady ? (vue.openBlock(), vue.createElementBlock(
         vue.Fragment,
@@ -570,8 +646,8 @@ if (uni.restoreGlobal) {
       )) : vue.createCommentVNode("v-if", true)
     ]);
   }
-  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$2l, [["render", _sfc_render$2k], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
-  const _sfc_main$2k = {
+  const PagesAuthLogin = /* @__PURE__ */ _export_sfc(_sfc_main$2m, [["render", _sfc_render$2l], ["__scopeId", "data-v-6c56cc25"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/login.vue"]]);
+  const _sfc_main$2l = {
     __name: "register",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -610,7 +686,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2j(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2k(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "auth-page" }, [
       vue.createElementVNode("view", { class: "hero" }, [
         vue.createElementVNode("text", { class: "brand" }, "创建账号"),
@@ -696,7 +772,7 @@ if (uni.restoreGlobal) {
       ])
     ]);
   }
-  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$2k, [["render", _sfc_render$2j], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
+  const PagesAuthRegister = /* @__PURE__ */ _export_sfc(_sfc_main$2l, [["render", _sfc_render$2k], ["__scopeId", "data-v-3d5ab0d5"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/auth/register.vue"]]);
   const icons = {
     "uicon-level": "",
     "uicon-column-line": "",
@@ -5147,7 +5223,7 @@ if (uni.restoreGlobal) {
     params,
     loadFont
   };
-  const _sfc_main$2j = {
+  const _sfc_main$2k = {
     name: "u-icon",
     beforeCreate() {
       if (!fontUtil.params.loaded) {
@@ -5215,7 +5291,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$2i(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2j(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -5258,7 +5334,7 @@ if (uni.restoreGlobal) {
       /* CLASS */
     );
   }
-  const __easycom_0$f = /* @__PURE__ */ _export_sfc(_sfc_main$2j, [["render", _sfc_render$2i], ["__scopeId", "data-v-1c933a9a"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-icon/u-icon.vue"]]);
+  const __easycom_0$f = /* @__PURE__ */ _export_sfc(_sfc_main$2k, [["render", _sfc_render$2j], ["__scopeId", "data-v-1c933a9a"], ["__file", "D:/code/mechiBookkeeping/frontend/node_modules/uview-plus/components/u-icon/u-icon.vue"]]);
   const __vite_glob_0_47 = /* @__PURE__ */ Object.freeze(/* @__PURE__ */ Object.defineProperty({
     __proto__: null,
     default: __easycom_0$f
@@ -5587,7 +5663,7 @@ if (uni.restoreGlobal) {
   function buildCategoryMap(categories) {
     return new Map(categories.map((c2) => [`${c2.source}:${c2.id}`, c2]));
   }
-  const _sfc_main$2i = {
+  const _sfc_main$2j = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5644,7 +5720,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2h(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2i(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_u_icon = resolveEasycom(vue.resolveDynamicComponent("u-icon"), __easycom_0$f);
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -5686,9 +5762,9 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$2i, [["render", _sfc_render$2h], ["__scopeId", "data-v-3ac3557a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/custom-tab-bar/index.vue"]]);
+  const CustomTabBar = /* @__PURE__ */ _export_sfc(_sfc_main$2j, [["render", _sfc_render$2i], ["__scopeId", "data-v-3ac3557a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/custom-tab-bar/index.vue"]]);
   const CACHE_TTL = 30 * 1e3;
-  const _sfc_main$2h = {
+  const _sfc_main$2i = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -5894,7 +5970,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2g(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2h(_ctx, _cache, $props, $setup, $data, $options) {
     const _component_u_icon = resolveEasycom(vue.resolveDynamicComponent("u-icon"), __easycom_0$f);
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -6218,8 +6294,8 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2h, [["render", _sfc_render$2g], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
-  const _sfc_main$2g = {
+  const PagesLedgerIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2i, [["render", _sfc_render$2h], ["__scopeId", "data-v-43fd4b50"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/index.vue"]]);
+  const _sfc_main$2h = {
     __name: "expense-statistics",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -6548,7 +6624,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2f(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2g(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       vue.Fragment,
       null,
@@ -7058,8 +7134,8 @@ if (uni.restoreGlobal) {
       /* STABLE_FRAGMENT */
     );
   }
-  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$2g, [["render", _sfc_render$2f], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
-  const _sfc_main$2f = {
+  const PagesLedgerExpenseStatistics = /* @__PURE__ */ _export_sfc(_sfc_main$2h, [["render", _sfc_render$2g], ["__scopeId", "data-v-382d220b"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/expense-statistics.vue"]]);
+  const _sfc_main$2g = {
     __name: "category-transactions",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7195,7 +7271,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2e(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2f(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
       !$setup.valid ? (vue.openBlock(), vue.createElementBlock("view", {
         key: 0,
@@ -7336,9 +7412,9 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$2f, [["render", _sfc_render$2e], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
+  const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$2g, [["render", _sfc_render$2f], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
   const CATEGORY_PAGE_SIZE = 12;
-  const _sfc_main$2e = {
+  const _sfc_main$2f = {
     __name: "transaction-form",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7579,7 +7655,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2d(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2e(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -7878,8 +7954,8 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const PagesLedgerTransactionForm = /* @__PURE__ */ _export_sfc(_sfc_main$2e, [["render", _sfc_render$2d], ["__scopeId", "data-v-ef724408"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/transaction-form.vue"]]);
-  const _sfc_main$2d = {
+  const PagesLedgerTransactionForm = /* @__PURE__ */ _export_sfc(_sfc_main$2f, [["render", _sfc_render$2e], ["__scopeId", "data-v-ef724408"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/transaction-form.vue"]]);
+  const _sfc_main$2e = {
     __name: "categories",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -7980,7 +8056,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2c(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2d(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
       vue.createElementVNode("view", { class: "card form" }, [
         vue.createElementVNode("text", { class: "form-title" }, "我的自定义分类"),
@@ -8203,12 +8279,12 @@ if (uni.restoreGlobal) {
       ))
     ]);
   }
-  const PagesLedgerCategories = /* @__PURE__ */ _export_sfc(_sfc_main$2d, [["render", _sfc_render$2c], ["__scopeId", "data-v-eb3d6ed0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/categories.vue"]]);
+  const PagesLedgerCategories = /* @__PURE__ */ _export_sfc(_sfc_main$2e, [["render", _sfc_render$2d], ["__scopeId", "data-v-eb3d6ed0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/categories.vue"]]);
   const block0$3 = (Comp) => {
     (Comp.$renderjs || (Comp.$renderjs = [])).push("sseBridge");
     (Comp.$renderjsModules || (Comp.$renderjsModules = {}))["sseBridge"] = "18eb3192";
   };
-  const _sfc_main$2c = {
+  const _sfc_main$2d = {
     props: {
       request: { type: String, default: "" }
     },
@@ -8226,7 +8302,7 @@ if (uni.restoreGlobal) {
       }
     }
   };
-  function _sfc_render$2b(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2c(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock("view", {
       class: "sse-bridge",
       request: vue.wp($props.request),
@@ -8234,10 +8310,10 @@ if (uni.restoreGlobal) {
     }, null, 8, ["request", "change:request"]);
   }
   if (typeof block0$3 === "function")
-    block0$3(_sfc_main$2c);
-  const SseBridge = /* @__PURE__ */ _export_sfc(_sfc_main$2c, [["render", _sfc_render$2b], ["__scopeId", "data-v-f13260f0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/sse-bridge/index.vue"]]);
+    block0$3(_sfc_main$2d);
+  const SseBridge = /* @__PURE__ */ _export_sfc(_sfc_main$2d, [["render", _sfc_render$2c], ["__scopeId", "data-v-f13260f0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/sse-bridge/index.vue"]]);
   const SESSION_KEY = "mechi_chat_session_id";
-  const _sfc_main$2b = {
+  const _sfc_main$2c = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8476,7 +8552,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$2a(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2b(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -8723,8 +8799,8 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesChatIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2b, [["render", _sfc_render$2a], ["__scopeId", "data-v-da04a0a0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/chat/index.vue"]]);
-  const _sfc_main$2a = {
+  const PagesChatIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2c, [["render", _sfc_render$2b], ["__scopeId", "data-v-da04a0a0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/chat/index.vue"]]);
+  const _sfc_main$2b = {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -8790,6 +8866,9 @@ if (uni.restoreGlobal) {
       }
       function goCategories() {
         uni.navigateTo({ url: "/pages/ledger/categories" });
+      }
+      function goImportExport() {
+        uni.navigateTo({ url: "/pages/profile/import-export" });
       }
       function chooseImage() {
         return new Promise((resolve, reject) => uni.chooseImage({ count: 1, sizeType: ["compressed"], sourceType: ["album", "camera"], success: ({ tempFilePaths }) => resolve(tempFilePaths[0]), fail: reject }));
@@ -8905,7 +8984,7 @@ if (uni.restoreGlobal) {
           }
         } });
       }
-      const __returned__ = { avatar, savedAvatar, uploading, saving, previewFailed, avatarDialogVisible, cropping, cropSource, cropSize, sourceWidth, sourceHeight, baseScale, zoom, offsetX, offsetY, dragStart, activityStats, initial, hasChanges, profileHeadStyle, imageWidth, imageHeight, imageLeft, imageTop, cropWindowStyle, cropImageStyle, load, goThemeSettings, goProfileInfo, openAvatarDialog, closeAvatarDialog, goCategories, chooseImage, getImageInfo, startAvatarChange, constrainOffset, startDrag, moveDrag, changeZoom, canvasToTempFile, confirmCrop, cancelCrop, save, logout, computed: vue.computed, ref: vue.ref, get onShow() {
+      const __returned__ = { avatar, savedAvatar, uploading, saving, previewFailed, avatarDialogVisible, cropping, cropSource, cropSize, sourceWidth, sourceHeight, baseScale, zoom, offsetX, offsetY, dragStart, activityStats, initial, hasChanges, profileHeadStyle, imageWidth, imageHeight, imageLeft, imageTop, cropWindowStyle, cropImageStyle, load, goThemeSettings, goProfileInfo, openAvatarDialog, closeAvatarDialog, goCategories, goImportExport, chooseImage, getImageInfo, startAvatarChange, constrainOffset, startDrag, moveDrag, changeZoom, canvasToTempFile, confirmCrop, cancelCrop, save, logout, computed: vue.computed, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -8920,7 +8999,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$29(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$2a(_ctx, _cache, $props, $setup, $data, $options) {
     var _a2, _b;
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -9030,6 +9109,16 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("view", null, [
             vue.createElementVNode("text", { class: "entry-title" }, "分类管理"),
             vue.createElementVNode("text", { class: "entry-subtitle" }, "管理收入与支出分类")
+          ]),
+          vue.createElementVNode("text", { class: "entry-arrow" }, "›")
+        ]),
+        vue.createElementVNode("view", {
+          class: "card category-entry",
+          onClick: $setup.goImportExport
+        }, [
+          vue.createElementVNode("view", null, [
+            vue.createElementVNode("text", { class: "entry-title" }, "导入导出"),
+            vue.createElementVNode("text", { class: "entry-subtitle" }, "Excel 批量备份与导入记账流水")
           ]),
           vue.createElementVNode("text", { class: "entry-arrow" }, "›")
         ]),
@@ -9174,8 +9263,8 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesProfileIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2a, [["render", _sfc_render$29], ["__scopeId", "data-v-f97f9319"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/index.vue"]]);
-  const _sfc_main$29 = {
+  const PagesProfileIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2b, [["render", _sfc_render$2a], ["__scopeId", "data-v-f97f9319"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/index.vue"]]);
+  const _sfc_main$2a = {
     __name: "theme-settings",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9194,7 +9283,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$28(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$29(_ctx, _cache, $props, $setup, $data, $options) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
@@ -9357,8 +9446,8 @@ if (uni.restoreGlobal) {
       /* STYLE */
     );
   }
-  const PagesProfileThemeSettings = /* @__PURE__ */ _export_sfc(_sfc_main$29, [["render", _sfc_render$28], ["__scopeId", "data-v-3fed1323"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/theme-settings.vue"]]);
-  const _sfc_main$28 = {
+  const PagesProfileThemeSettings = /* @__PURE__ */ _export_sfc(_sfc_main$2a, [["render", _sfc_render$29], ["__scopeId", "data-v-3fed1323"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/theme-settings.vue"]]);
+  const _sfc_main$29 = {
     __name: "info",
     setup(__props, { expose: __expose }) {
       __expose();
@@ -9453,7 +9542,7 @@ if (uni.restoreGlobal) {
       return __returned__;
     }
   };
-  function _sfc_render$27(_ctx, _cache, $props, $setup, $data, $options) {
+  function _sfc_render$28(_ctx, _cache, $props, $setup, $data, $options) {
     var _a2;
     return vue.openBlock(), vue.createElementBlock(
       "view",
@@ -9562,7 +9651,172 @@ if (uni.restoreGlobal) {
       /* CLASS, STYLE */
     );
   }
-  const PagesProfileInfo = /* @__PURE__ */ _export_sfc(_sfc_main$28, [["render", _sfc_render$27], ["__scopeId", "data-v-74ef736d"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/info.vue"]]);
+  const PagesProfileInfo = /* @__PURE__ */ _export_sfc(_sfc_main$29, [["render", _sfc_render$28], ["__scopeId", "data-v-74ef736d"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/info.vue"]]);
+  const _sfc_main$28 = {
+    __name: "import-export",
+    setup(__props, { expose: __expose }) {
+      __expose();
+      const exporting = vue.ref(false);
+      const importing = vue.ref(false);
+      const importResult = vue.ref(null);
+      function chooseExcelFile() {
+        return Promise.reject(new Error("App 端暂不支持选择文件，请使用 H5 网页版导入"));
+      }
+      async function handleExport() {
+        if (exporting.value)
+          return;
+        exporting.value = true;
+        try {
+          await appApi.exportTransactions();
+          uni.showToast({ title: "导出成功", icon: "success" });
+        } catch (error2) {
+          showRequestError(error2);
+        } finally {
+          exporting.value = false;
+        }
+      }
+      async function handleImport() {
+        if (importing.value)
+          return;
+        try {
+          const filePath = await chooseExcelFile();
+          if (!filePath)
+            return;
+          importing.value = true;
+          importResult.value = await appApi.importTransactions(filePath);
+          if (importResult.value.failedCount > 0) {
+            uni.showToast({ title: "部分数据导入失败，请查看结果", icon: "none" });
+          } else {
+            uni.showToast({ title: `成功导入 ${importResult.value.importedCount} 条流水`, icon: "success" });
+          }
+        } catch (error2) {
+          if (!String((error2 == null ? void 0 : error2.message) || "").includes("未选择文件"))
+            showRequestError(error2);
+        } finally {
+          importing.value = false;
+        }
+      }
+      const __returned__ = { exporting, importing, importResult, chooseExcelFile, handleExport, handleImport, ref: vue.ref, get appApi() {
+        return appApi;
+      }, get themeStore() {
+        return themeStore;
+      }, get showRequestError() {
+        return showRequestError;
+      } };
+      Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
+      return __returned__;
+    }
+  };
+  function _sfc_render$27(_ctx, _cache, $props, $setup, $data, $options) {
+    return vue.openBlock(), vue.createElementBlock(
+      "view",
+      {
+        class: "transfer-page",
+        style: vue.normalizeStyle($setup.themeStore.cssVariables)
+      },
+      [
+        vue.createElementVNode("view", { class: "transfer-intro" }, [
+          vue.createElementVNode("text", { class: "intro-title" }, "导入导出"),
+          vue.createElementVNode("text", { class: "intro-description" }, "把记账流水导出为 Excel 备份，也可以从 Excel 文件批量导入流水。")
+        ]),
+        vue.createElementVNode("view", {
+          class: "card action-card",
+          onClick: $setup.handleExport
+        }, [
+          vue.createElementVNode("view", null, [
+            vue.createElementVNode("text", { class: "action-title" }, "导出 Excel"),
+            vue.createElementVNode("text", { class: "action-subtitle" }, "下载全部流水的 Excel 文件")
+          ]),
+          vue.createElementVNode(
+            "text",
+            { class: "action-arrow" },
+            vue.toDisplayString($setup.exporting ? "导出中…" : "›"),
+            1
+            /* TEXT */
+          )
+        ]),
+        vue.createElementVNode("view", {
+          class: "card action-card",
+          onClick: $setup.handleImport
+        }, [
+          vue.createElementVNode("view", null, [
+            vue.createElementVNode("text", { class: "action-title" }, "导入 Excel"),
+            vue.createElementVNode("text", { class: "action-subtitle" }, "从 Excel 文件批量导入流水")
+          ]),
+          vue.createElementVNode(
+            "text",
+            { class: "action-arrow" },
+            vue.toDisplayString($setup.importing ? "导入中…" : "›"),
+            1
+            /* TEXT */
+          )
+        ]),
+        vue.createElementVNode("view", { class: "card tips-card" }, [
+          vue.createElementVNode("text", { class: "tips-title" }, "导入模板说明"),
+          vue.createElementVNode("text", { class: "tips-line" }, "1. 表头依次为：日期、类型、分类、金额、备注。"),
+          vue.createElementVNode("text", { class: "tips-line" }, "2. 日期格式 yyyy-MM-dd；类型填 收入 或 支出；金额大于 0 且最多两位小数。"),
+          vue.createElementVNode("text", { class: "tips-line" }, "3. 分类需要已存在，优先匹配自定义分类，其次匹配系统分类。"),
+          vue.createElementVNode("text", { class: "tips-line" }, "4. 单次最多导入 2000 行，备注最多 255 字，失败的行会逐条提示。")
+        ]),
+        $setup.importResult ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "card result-card"
+        }, [
+          vue.createElementVNode("text", { class: "result-title" }, "导入结果"),
+          vue.createElementVNode("view", { class: "result-stats" }, [
+            vue.createElementVNode("view", { class: "result-stat" }, [
+              vue.createElementVNode(
+                "text",
+                { class: "result-value" },
+                vue.toDisplayString($setup.importResult.importedCount),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("text", { class: "result-label" }, "成功")
+            ]),
+            vue.createElementVNode("view", { class: "result-stat" }, [
+              vue.createElementVNode(
+                "text",
+                {
+                  class: vue.normalizeClass(["result-value", { failed: $setup.importResult.failedCount > 0 }])
+                },
+                vue.toDisplayString($setup.importResult.failedCount),
+                3
+                /* TEXT, CLASS */
+              ),
+              vue.createElementVNode("text", { class: "result-label" }, "失败")
+            ])
+          ]),
+          $setup.importResult.errors && $setup.importResult.errors.length ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 0,
+            class: "result-errors"
+          }, [
+            (vue.openBlock(true), vue.createElementBlock(
+              vue.Fragment,
+              null,
+              vue.renderList($setup.importResult.errors, (error2, index2) => {
+                return vue.openBlock(), vue.createElementBlock(
+                  "text",
+                  {
+                    key: index2,
+                    class: "result-error"
+                  },
+                  vue.toDisplayString(error2),
+                  1
+                  /* TEXT */
+                );
+              }),
+              128
+              /* KEYED_FRAGMENT */
+            ))
+          ])) : vue.createCommentVNode("v-if", true)
+        ])) : vue.createCommentVNode("v-if", true)
+      ],
+      4
+      /* STYLE */
+    );
+  }
+  const PagesProfileImportExport = /* @__PURE__ */ _export_sfc(_sfc_main$28, [["render", _sfc_render$27], ["__scopeId", "data-v-93ef2ab7"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/import-export.vue"]]);
   __definePage("pages/auth/login", PagesAuthLogin);
   __definePage("pages/auth/register", PagesAuthRegister);
   __definePage("pages/ledger/index", PagesLedgerIndex);
@@ -9574,6 +9828,7 @@ if (uni.restoreGlobal) {
   __definePage("pages/profile/index", PagesProfileIndex);
   __definePage("pages/profile/theme-settings", PagesProfileThemeSettings);
   __definePage("pages/profile/info", PagesProfileInfo);
+  __definePage("pages/profile/import-export", PagesProfileImportExport);
   const _sfc_main$27 = {
     props: {
       modelValue: {
@@ -48156,7 +48411,7 @@ ${e2}</tr>
       return titleMapCache;
     titleMapCache = {};
     try {
-      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/category-transactions":"分类流水","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的","pages/profile/theme-settings":"主题外观","pages/profile/info":"个人信息"}';
+      const raw = '{"pages/auth/login":"登录","pages/auth/register":"注册","pages/ledger/index":"账本","pages/ledger/expense-statistics":"费用统计","pages/ledger/category-transactions":"分类流水","pages/ledger/transaction-form":"新增流水","pages/ledger/categories":"收支分类","pages/chat/index":"AI 助手","pages/profile/index":"我的","pages/profile/theme-settings":"主题外观","pages/profile/info":"个人信息","pages/profile/import-export":"导入导出"}';
       if (typeof raw !== "string" || !raw)
         ;
       const parsed = JSON.parse(raw);

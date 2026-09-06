@@ -1,0 +1,44 @@
+.transfer-page[data-v-93ef2ab7] { min-height: 100vh; padding: 1rem 0 calc(1.5rem + env(safe-area-inset-bottom)); color: var(--theme-text); background: var(--theme-page-bg); box-sizing: border-box;
+}
+.transfer-intro[data-v-93ef2ab7] { margin: 0.25rem 1rem 0.25rem;
+}
+.intro-title[data-v-93ef2ab7], .intro-description[data-v-93ef2ab7] { display: block;
+}
+.intro-title[data-v-93ef2ab7] { color: var(--theme-text-strong); font-size: 1.25rem; font-weight: 700;
+}
+.intro-description[data-v-93ef2ab7] { margin-top: 0.375rem; color: var(--theme-text-muted); font-size: 0.78125rem; line-height: 1.6;
+}
+.action-card[data-v-93ef2ab7] { display: flex; align-items: center; justify-content: space-between;
+}
+.action-card[data-v-93ef2ab7]:active { transform: scale(.99);
+}
+.action-title[data-v-93ef2ab7], .action-subtitle[data-v-93ef2ab7] { display: block;
+}
+.action-title[data-v-93ef2ab7] { color: var(--theme-text-strong); font-size: 0.90625rem; font-weight: 600;
+}
+.action-subtitle[data-v-93ef2ab7] { margin-top: 0.3125rem; color: var(--theme-text-muted); font-size: 0.71875rem;
+}
+.action-arrow[data-v-93ef2ab7] { color: var(--theme-text-muted); font-size: 0.8125rem;
+}
+.tips-title[data-v-93ef2ab7] { display: block; margin-bottom: 0.5rem; color: var(--theme-text-strong); font-size: 0.8125rem; font-weight: 600;
+}
+.tips-line[data-v-93ef2ab7] { display: block; margin-top: 0.25rem; color: var(--theme-text-muted); font-size: 0.71875rem; line-height: 1.6;
+}
+.result-title[data-v-93ef2ab7] { display: block; margin-bottom: 0.625rem; color: var(--theme-text-strong); font-size: 0.90625rem; font-weight: 600;
+}
+.result-stats[data-v-93ef2ab7] { display: flex; margin-bottom: 0.375rem;
+}
+.result-stat[data-v-93ef2ab7] { display: flex; flex: 1; flex-direction: column; align-items: center; gap: 0.25rem;
+}
+.result-stat + .result-stat[data-v-93ef2ab7] { border-left: 0.03125rem solid var(--theme-border);
+}
+.result-value[data-v-93ef2ab7] { color: var(--theme-primary); font-size: 1.1875rem; font-weight: 700;
+}
+.result-value.failed[data-v-93ef2ab7] { color: #e5484d;
+}
+.result-label[data-v-93ef2ab7] { color: var(--theme-text-muted); font-size: 0.6875rem;
+}
+.result-errors[data-v-93ef2ab7] { margin-top: 0.375rem; padding-top: 0.5rem; border-top: 0.03125rem solid var(--theme-border);
+}
+.result-error[data-v-93ef2ab7] { display: block; margin-top: 0.25rem; color: #e5484d; font-size: 0.71875rem; line-height: 1.5;
+}

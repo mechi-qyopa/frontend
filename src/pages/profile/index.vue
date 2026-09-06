@@ -18,6 +18,7 @@
     </view>
     <view class="card category-entry" @click="goProfileInfo"><view><text class="entry-title">个人信息</text><text class="entry-subtitle">查看与修改头像、用户名、手机号</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry" @click="goCategories"><view><text class="entry-title">分类管理</text><text class="entry-subtitle">管理收入与支出分类</text></view><text class="entry-arrow">›</text></view>
+    <view class="card category-entry" @click="goImportExport"><view><text class="entry-title">导入导出</text><text class="entry-subtitle">Excel 批量备份与导入记账流水</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry theme-entry" @click="goThemeSettings"><view><text class="entry-title">主题外观</text><text class="entry-subtitle">当前使用：{{ themeStore.currentTheme.name }}</text></view><view class="entry-right"><text class="theme-current">已启用</text><text class="entry-arrow">›</text></view></view>
     <button class="logout" @click="logout">退出登录</button>
 
@@ -91,6 +92,7 @@ function goProfileInfo() { uni.navigateTo({ url: '/pages/profile/info' }) }
 function openAvatarDialog() { previewFailed.value = false; avatarDialogVisible.value = true }
 function closeAvatarDialog() { avatarDialogVisible.value = false }
 function goCategories() { uni.navigateTo({ url: '/pages/ledger/categories' }) }
+function goImportExport() { uni.navigateTo({ url: '/pages/profile/import-export' }) }
 function chooseImage() { return new Promise((resolve, reject) => uni.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'], success: ({ tempFilePaths }) => resolve(tempFilePaths[0]), fail: reject })) }
 function getImageInfo(src) { return new Promise((resolve, reject) => uni.getImageInfo({ src, success: resolve, fail: reject })) }
 async function startAvatarChange() { if (uploading.value || cropping.value) return; avatarDialogVisible.value = false; try { const filePath = await chooseImage(); const info = await getImageInfo(filePath); cropSource.value = filePath; sourceWidth.value = info.width; sourceHeight.value = info.height; cropSize.value = Math.round(uni.getSystemInfoSync().windowWidth * 0.76); baseScale.value = Math.max(cropSize.value / info.width, cropSize.value / info.height); zoom.value = 1; offsetX.value = 0; offsetY.value = 0; cropping.value = true } catch (error) { if (!String(error?.errMsg || error?.message || '').includes('cancel')) showRequestError(error) } }
