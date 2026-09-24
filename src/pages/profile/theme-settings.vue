@@ -1,5 +1,5 @@
 <template>
-  <view class="theme-page" :style="themeStore.cssVariables">
+  <view :class="['theme-page', `theme-${themeStore.id}`]" :style="themeStore.cssVariables">
     <view class="theme-intro">
       <text class="theme-intro-title">主题外观</text>
       <text class="theme-intro-description">选择喜欢的配色，账本、统计和助手会同步切换。</text>
@@ -8,12 +8,14 @@
     <view class="current-theme-card">
       <view class="current-theme-mark">✓</view>
       <view><text class="current-theme-label">当前使用</text><text class="current-theme-name">{{ themeStore.currentTheme.name }}</text></view>
+      <image v-if="themeStore.currentTheme.mascot" class="current-theme-mascot" :src="themeStore.currentTheme.mascot" mode="aspectFit" />
     </view>
 
     <view class="theme-grid">
       <view v-for="theme in THEMES" :key="theme.id" :class="['theme-option', { selected: themeStore.id === theme.id }]" @click="selectTheme(theme.id)">
         <!-- App 端 image 不支持 SVG，预览图改用各主题 colors 内联绘制的纯 CSS 示意 -->
         <view class="theme-preview" :style="{ background: theme.colors.pageBackground }">
+          <image v-if="theme.mascot" class="preview-mascot" :src="theme.mascot" mode="aspectFit" />
           <view class="preview-band" :style="{ background: `linear-gradient(135deg, ${theme.colors.primary}, ${theme.colors.primaryEnd})` }"></view>
           <view class="preview-card" :style="{ background: theme.colors.surface }">
             <view class="preview-chip" :style="{ background: theme.colors.primarySoft }">
@@ -54,12 +56,13 @@ function selectTheme(id) {
 .current-theme-label,.current-theme-name { display: block; }
 .current-theme-label { color: rgba(255,255,255,.76); font-size: 22rpx; }
 .current-theme-name { margin-top: 5rpx; font-size: 31rpx; font-weight: 600; }
-.current-theme-mascot { width: 92rpx; height: 92rpx; margin-left: auto; }
+.current-theme-mascot { width: 92rpx; height: 92rpx; margin-left: auto; border-radius: 50%; background: rgba(255, 255, 255, .92); }
 .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20rpx; }
 .theme-option { overflow: hidden; border: 3rpx solid transparent; border-radius: var(--theme-radius-card, 24rpx); background: var(--theme-surface); box-shadow: 0 8rpx 24rpx rgba(36, 58, 99, .06); box-sizing: border-box; }
 .theme-option.selected { border-color: var(--theme-primary); box-shadow: 0 10rpx 26rpx var(--theme-primary-shadow); }
 .theme-option:active { transform: scale(.98); }
 .theme-preview { position: relative; overflow: hidden; width: 100%; height: 190rpx; }
+.preview-mascot { position: absolute; z-index: 1; top: 6rpx; right: 18rpx; width: 62rpx; height: 62rpx; border-radius: 50%; background: rgba(255, 255, 255, .9); }
 .preview-band { position: absolute; top: 0; right: 0; left: 0; height: 66rpx; border-radius: 0 0 24rpx 24rpx; }
 .preview-card { position: absolute; right: 18rpx; bottom: 14rpx; left: 18rpx; display: flex; align-items: center; gap: 16rpx; height: 116rpx; padding: 0 16rpx; border-radius: 16rpx; }
 .preview-chip { display: flex; flex-direction: column; align-items: flex-start; justify-content: center; gap: 10rpx; flex-shrink: 0; width: 118rpx; height: 76rpx; padding-left: 14rpx; border-radius: 12rpx; }

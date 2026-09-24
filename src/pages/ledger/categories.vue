@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view :class="['page', `theme-${themeStore.id}`]" :style="themeStore.pageStyle">
     <view class="card form">
       <text class="form-title">我的自定义分类</text>
       <input v-model.trim="form.name" class="input" placeholder="分类名称，如：宠物" maxlength="32" />
@@ -12,7 +12,7 @@
         <view class="image-upload-row">
           <button class="image-upload-button" :disabled="uploading" @click="chooseImage">
             <text class="image-upload-icon">＋</text>
-            <text>{{ uploading ? '图片上传中...' : form.imageUrl ? '更换图片' : '选择图片' }}</text>
+            <text>{{ uploading ? '图片上传中…' : form.imageUrl ? '更换图片' : '选择图片' }}</text>
           </button>
           <view v-if="form.imageUrl" class="image-preview-wrap">
             <image class="form-image-preview" :src="form.imageUrl" mode="aspectFill" />
@@ -61,6 +61,7 @@ import { reactive, ref } from 'vue'
 import { onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { showRequestError } from '../../utils/request'
+import { themeStore } from '../../stores/theme'
 
 const categories = ref([]); const editingId = ref(null); const uploading = ref(false); const form = reactive({ name: '', imageUrl: '', transactionType: 'EXPENSE' })
 onShow(load)
@@ -109,9 +110,21 @@ function remove(item) { uni.showModal({ title: '删除自定义分类', content:
 .category-item:last-child { border: 0; }
 .category-main { display: flex; align-items: center; min-width: 0; }
 .category-thumbnail { width: 52rpx; height: 52rpx; margin-right: 16rpx; border-radius: 50%; background: #f2f4f7; }
-.edit { margin-right: 26rpx; color: #1677ff; font-size: 25rpx; }
-.delete { color: #e11d48; font-size: 25rpx; }
+.edit { margin-right: 10rpx; padding: 20rpx 8rpx; color: #1677ff; font-size: 25rpx; }
+.delete { margin-right: -8rpx; padding: 20rpx 8rpx; color: #e11d48; font-size: 25rpx; }
+.edit:active, .delete:active { opacity: .6; }
+.pill:active { opacity: .7; }
 .readonly { color: #667085; font-size: 24rpx; }
 .disabled { color: #e11d48; font-size: 24rpx; }
 .small-empty { padding: 42rpx; }
+
+/* 主题覆盖：分类管理页跟随运行时主题。 */
+.page { background: var(--theme-page-bg) !important; }
+.form, .category-card { background: var(--theme-surface) !important; }
+.image-upload-section { border-color: var(--theme-border) !important; background: var(--theme-primary-soft) !important; }
+.form-title, .section-title { color: var(--theme-text) !important; }
+.image-upload-title, .image-upload-hint { color: var(--theme-text-secondary) !important; }
+.category-item { border-color: var(--theme-border) !important; }
+.category-main text { color: var(--theme-text-strong) !important; }
+.readonly { color: var(--theme-text-secondary) !important; }
 </style>

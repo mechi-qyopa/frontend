@@ -54,11 +54,18 @@
 
 .tab-bar[data-v-3ac3557a] { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; display: flex; min-height: 3.5rem; padding: 0.4375rem 0.5rem calc(0.4375rem + env(safe-area-inset-bottom)); border-top: 0.03125rem solid var(--theme-border); background: var(--theme-surface); box-shadow: 0 -0.3125rem 0.9375rem rgba(28, 39, 59, .06); box-sizing: border-box;
 }
-.tab-item[data-v-3ac3557a] { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 0.15625rem; min-width: 0; color: var(--theme-tab-inactive);
+.tab-item[data-v-3ac3557a] { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 0.15625rem; min-width: 0; color: var(--theme-tab-inactive); touch-action: manipulation; -webkit-tap-highlight-color: transparent;
 }
-.tab-icon-wrap[data-v-3ac3557a] { display: flex; align-items: center; justify-content: center; width: 1.6875rem; height: 1.4375rem; border-radius: var(--theme-radius-control, 0.5rem); transition: all .2s ease;
+.tab-item[data-v-3ac3557a]:active { opacity: .7;
 }
-.tab-label[data-v-3ac3557a] { color: inherit; font-size: 0.875rem; line-height: 1.2; transition: all .2s ease;
+/* 猫咪主题：探头白猫（奶油圆底衬托，pointer-events 不拦截 tab 点击） */
+.tab-cat[data-v-3ac3557a] { position: absolute; top: -1.25rem; left: 50%; margin-left: -1.375rem; width: 2.75rem; height: 2.75rem; padding: 0.375rem; box-sizing: border-box; background: var(--theme-primary-soft); border-radius: 50%; box-shadow: 0 0.1875rem 0.5rem rgba(93, 58, 21, .16); pointer-events: none;
+}
+.tab-item.active .tab-active-paw[data-v-3ac3557a] { position: absolute; top: -0.9375rem; left: 50%; margin-left: -0.46875rem; width: 0.9375rem; height: 0.9375rem; transform: rotate(-18deg);
+}
+.tab-icon-wrap[data-v-3ac3557a] { position: relative; display: flex; align-items: center; justify-content: center; width: 1.6875rem; height: 1.4375rem; border-radius: var(--theme-radius-control, 0.5rem); transition: background .2s ease, box-shadow .2s ease;
+}
+.tab-label[data-v-3ac3557a] { color: inherit; font-size: 0.875rem; line-height: 1.2; transition: color .2s ease;
 }
 .tab-item.active[data-v-3ac3557a] { color: var(--theme-primary);
 }
@@ -75,7 +82,8 @@
 }.avatar-image[data-v-f97f9319] { display: block;
 }.avatar-badge[data-v-f97f9319] { position: absolute; right: -0.25rem; bottom: -0.0625rem; padding: 0.125rem 0.3125rem; border-radius: 0.5rem; color: var(--theme-primary); background: var(--theme-surface); font-size: 0.625rem; line-height: 1.3;
 }.username[data-v-f97f9319],.phone[data-v-f97f9319] { display: block;
-}.username[data-v-f97f9319] { font-size: 1.125rem; font-weight: 600;
+}.username[data-v-f97f9319] { overflow: hidden; max-width: 100%; font-size: 1.125rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap;
+}.user-meta[data-v-f97f9319] { min-width: 0;
 }.phone[data-v-f97f9319] { margin-top: 0.3125rem; color: rgba(255,255,255,.78); font-size: 0.78125rem;
 }.activity-card[data-v-f97f9319] { padding: 0.875rem 0.75rem;
 }.activity-title[data-v-f97f9319] { display: block; margin: 0 0.125rem 0.75rem; color: var(--theme-text-strong); font-size: 0.90625rem; font-weight: 600;
@@ -85,6 +93,7 @@
 }.activity-value[data-v-f97f9319] { color: var(--theme-primary); font-size: 1.1875rem; font-weight: 700;
 }.activity-label[data-v-f97f9319] { color: var(--theme-text-muted); font-size: 0.6875rem;
 }.category-entry[data-v-f97f9319] { display: flex; align-items: center; justify-content: space-between; color: var(--theme-text-secondary);
+}.category-entry[data-v-f97f9319]:active { opacity: .7;
 }.category-entry[data-v-f97f9319] { margin-top: 0;
 }.entry-title[data-v-f97f9319],.entry-subtitle[data-v-f97f9319] { display: block;
 }.entry-title[data-v-f97f9319] { color: var(--theme-text-strong); font-size: 0.90625rem;

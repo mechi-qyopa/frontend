@@ -18,6 +18,8 @@
 }
 .current-theme-name[data-v-3fed1323] { margin-top: 0.15625rem; font-size: 0.96875rem; font-weight: 600;
 }
+.current-theme-mascot[data-v-3fed1323] { width: 2.875rem; height: 2.875rem; margin-left: auto; border-radius: 50%; background: rgba(255, 255, 255, .92);
+}
 .theme-grid[data-v-3fed1323] { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.625rem;
 }
 .theme-option[data-v-3fed1323] { overflow: hidden; border: 0.09375rem solid transparent; border-radius: var(--theme-radius-card, 0.75rem); background: var(--theme-surface); box-shadow: 0 0.25rem 0.75rem rgba(36, 58, 99, .06); box-sizing: border-box;
@@ -27,6 +29,8 @@
 .theme-option[data-v-3fed1323]:active { transform: scale(.98);
 }
 .theme-preview[data-v-3fed1323] { position: relative; overflow: hidden; width: 100%; height: 5.9375rem;
+}
+.preview-mascot[data-v-3fed1323] { position: absolute; z-index: 1; top: 0.1875rem; right: 0.5625rem; width: 1.9375rem; height: 1.9375rem; border-radius: 50%; background: rgba(255, 255, 255, .9);
 }
 .preview-band[data-v-3fed1323] { position: absolute; top: 0; right: 0; left: 0; height: 2.0625rem; border-radius: 0 0 0.75rem 0.75rem;
 }

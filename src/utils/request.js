@@ -22,6 +22,7 @@ export function refreshAccessToken() {
       url: `${API_BASE_URL}/api/v1/app/token/refresh`,
       method: 'POST',
       data: { refreshToken: authStore.refreshToken },
+      timeout: 15000,
       header: {
         Accept: 'application/json',
         'Content-Type': 'application/json'
@@ -34,7 +35,7 @@ export function refreshAccessToken() {
         authStore.setTokens(data.token, data.refreshToken)
         resolve()
       },
-      fail: () => reject(new Error('网络连接失败，请检查服务地址'))
+      fail: ({ errMsg = '' } = {}) => reject(new Error(errMsg.includes('timeout') ? '登录状态刷新超时，请检查网络后重试' : '网络连接失败，请检查服务地址'))
     })
   }).finally(() => {
     refreshPromise = null
@@ -49,6 +50,7 @@ export function request({ url, method = 'GET', data, unwrapResult = false, heade
       url: `${API_BASE_URL}${url}`,
       method,
       data,
+      timeout: 15000,
       header: {
         Accept: 'application/json',
         ...(data ? { 'Content-Type': 'application/json' } : {}),
@@ -85,7 +87,7 @@ export function request({ url, method = 'GET', data, unwrapResult = false, heade
         }
         resolve(body)
       },
-      fail: () => reject(new Error('网络连接失败，请检查服务地址'))
+      fail: ({ errMsg = '' } = {}) => reject(new Error(errMsg.includes('timeout') ? '请求超时，请检查网络后重试' : '网络连接失败，请检查服务地址'))
     })
   })
 }

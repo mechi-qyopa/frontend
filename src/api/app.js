@@ -183,11 +183,16 @@ function uploadImage(filePath, retried = false) {
           reject(new Error('登录已过期，请重新登录'))
           return
         }
-        if (statusCode < 200 || statusCode >= 300 || !body?.url) {
+        if (statusCode < 200 || statusCode >= 300 || !body || (body.code !== undefined && body.code !== 0)) {
           reject(new Error(body?.msg || '头像上传失败'))
           return
         }
-        resolve(body.url)
+        const url = body.data?.url || body.url
+        if (!url) {
+          reject(new Error('头像上传失败'))
+          return
+        }
+        resolve(url)
       },
       fail: () => reject(new Error('头像上传失败，请检查网络连接'))
     })

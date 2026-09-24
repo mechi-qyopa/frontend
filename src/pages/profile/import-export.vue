@@ -1,5 +1,5 @@
 <template>
-  <view class="transfer-page" :style="themeStore.cssVariables">
+  <view :class="['transfer-page', `theme-${themeStore.id}`]" :style="themeStore.cssVariables">
     <view class="transfer-intro">
       <text class="intro-title">导入导出</text>
       <text class="intro-description">把记账流水导出为 Excel 备份，也可以从 Excel 文件批量导入流水。</text>
@@ -57,7 +57,8 @@ function chooseExcelFile() {
       count: 1,
       extension: ['.xlsx', '.xls'],
       success: ({ tempFilePaths }) => resolve(tempFilePaths && tempFilePaths[0]),
-      fail: () => reject(new Error('未选择文件'))
+      // 透传原始错误对象，取消（errMsg 含 cancel）与真实失败由调用方区分
+      fail: (error) => reject(error)
     })
   })
 }
@@ -78,6 +79,11 @@ async function handleExport() {
 
 async function handleImport() {
   if (importing.value) return
+  // #ifdef APP-PLUS
+  // App 端无法选择文件，直接给出明确提示而不是静默失败
+  uni.showModal({ title: '暂不支持导入', content: 'App 端暂不支持选择文件导入，请使用 H5 网页版操作', showCancel: false })
+  return
+  // #endif
   try {
     const filePath = await chooseExcelFile()
     if (!filePath) return
@@ -89,7 +95,9 @@ async function handleImport() {
       uni.showToast({ title: `成功导入 ${importResult.value.importedCount} 条流水`, icon: 'success' })
     }
   } catch (error) {
-    if (!String(error?.message || '').includes('未选择文件')) showRequestError(error)
+    // 用户取消选择文件不提示错误（H5 cancel / App 部分机型返回未选择文件）
+    const message = String(error?.errMsg || error?.message || '')
+    if (!message.includes('cancel') && !message.includes('未选择文件')) showRequestError(error)
   } finally {
     importing.value = false
   }

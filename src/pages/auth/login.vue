@@ -4,8 +4,8 @@
       <view class="hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
       <view class="form-card">
         <text class="title">欢迎回来</text>
-        <input v-model.trim="form.username" class="input" placeholder="用户名" maxlength="32" />
-        <input v-model="form.password" class="input form-space" placeholder="密码" password maxlength="72" />
+        <input v-model.trim="form.username" class="input" placeholder="用户名" maxlength="32" confirm-type="next" />
+        <input v-model="form.password" class="input form-space" placeholder="密码" password maxlength="72" confirm-type="go" @confirm="submit" />
         <button class="primary-button submit" :loading="submitting" @click="submit">登录</button>
         <view class="footer-text">还没有账号？<text class="link" @click="goRegister">立即注册</text></view>
       </view>
@@ -59,5 +59,6 @@ function goRegister() { uni.navigateTo({ url: '/pages/auth/register' }) }
 .form-space { margin-top: 24rpx; }
 .submit { margin-top: 42rpx; height: 92rpx; line-height: 92rpx; }
 .footer-text { margin-top: 38rpx; color: #7c8799; font-size: 26rpx; text-align: center; }
-.link { color: #1677ff; }
+.link { padding: 10rpx 4rpx; color: #1677ff; }
+.link:active { opacity: .6; }
 </style>

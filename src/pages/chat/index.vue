@@ -7,19 +7,21 @@
       </view>
       <view style="display: flex; align-items: center; gap: 12rpx;">
         <button class="new-conversation" :disabled="sending" @click="newConversation">新对话</button>
-        <button class="new-conversation" style="width: 62rpx; padding: 0;" :disabled="sending" aria-label="历史对话" @click="openConversationList">🕘</button>
+        <button class="new-conversation history-trigger" :disabled="sending" aria-label="历史对话" @click="openConversationList"><view class="clock-icon" /></button>
       </view>
     </view>
 
-    <scroll-view class="messages" scroll-y :scroll-into-view="bottomId">
-      <view v-if="!messages.length" class="welcome">
-        <view class="welcome-avatar">AI</view>
-        <text class="welcome-title">你好，我是记账助手</text>
-        <text class="welcome-description">可以问我记账建议，或聊聊你的收支规划。</text>
+    <scroll-view class="messages" scroll-y :scroll-into-view="bottomId" @scroll="onMessagesScroll">
+      <view v-if="historyLoading" class="history-loading"><text>加载中…</text></view>
+      <view v-else-if="!messages.length" class="welcome">
+        <view class="welcome-avatar"><image v-if="themeStore.currentTheme.mascot" class="avatar-mascot" :src="themeStore.currentTheme.mascot" mode="aspectFit" /><text v-else>AI</text></view>
+        <text class="welcome-title">{{ mascots ? '你好，我是喵记账助手' : '你好，我是记账助手' }}</text>
+        <text class="welcome-description">{{ mascots ? '可以问我记账建议，或聊聊你的收支规划喵～' : '可以问我记账建议，或聊聊你的收支规划。' }}</text>
+        <view v-if="mascots" class="welcome-paws"><image :src="mascots.strawberry" mode="aspectFit" /><image :src="mascots.rice" mode="aspectFit" /><image :src="mascots.peach" mode="aspectFit" /></view>
       </view>
 
       <view v-for="(item, index) in messages" :id="`message-${index}`" :key="`${item.id || index}-${item.createdAt || ''}`" :class="['message-row', isUserMessage(item) ? 'user-row' : 'assistant-row']">
-        <view v-if="!isUserMessage(item)" class="message-avatar assistant-avatar"><image v-if="themeStore.currentTheme.mascot" class="avatar-mascot" :src="themeStore.currentTheme.mascot" mode="aspectFit" /><text v-else>AI</text></view>
+        <view v-if="!isUserMessage(item)" class="message-avatar assistant-avatar"><image v-if="mascots || themeStore.currentTheme.mascot" class="avatar-mascot" :src="mascots?.chat || themeStore.currentTheme.mascot" mode="aspectFit" /><text v-else>AI</text></view>
         <view class="message-content">
           <view :class="['message', isUserMessage(item) ? 'user' : 'assistant']"><text>{{ item.content }}</text><text v-if="item.streaming" class="typing-cursor">▍</text></view>
         </view>
@@ -32,10 +34,10 @@
     <view v-if="inputFocused && keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
     <view :class="['composer', { floating: inputFocused && keyboardHeight > 0 }]" :style="{ bottom: keyboardHeight && inputFocused ? keyboardHeight + 'px' : undefined }">
       <view class="composer-field">
-        <input v-model="input" class="composer-input" maxlength="1000" confirm-type="send" placeholder="输入消息，向助手提问…" :adjust-position="false" @focus="onInputFocus" @blur="onInputBlur" @confirm="send" />
+        <input v-model="input" class="composer-input" maxlength="1000" confirm-type="send" :placeholder="mascots ? '向喵助手提问…' : '输入消息，向助手提问…'" :adjust-position="false" @focus="onInputFocus" @blur="onInputBlur" @confirm="send" />
         <text v-if="input.length" class="composer-count">{{ input.length }}/1000</text>
       </view>
-      <button class="send" :class="{ 'send-ready': input.trim() && !sending }" :disabled="!input.trim() || sending" :loading="sending" @click="send">发送</button>
+      <button class="send" :class="{ 'send-ready': input.trim() && !sending }" :disabled="!input.trim() || sending" :loading="sending" @click="send">{{ mascots ? '发送喵' : '发送' }}</button>
     </view>
 
     <view v-if="conversationListVisible" class="conversation-mask" @click="closeConversationList">
@@ -46,7 +48,7 @@
         </view>
         <button class="conversation-create" :disabled="sending" @click="newConversation">开启新对话</button>
         <scroll-view class="conversation-list" scroll-y>
-          <view v-if="!conversations.length" class="conversation-empty">还没有历史对话，发送第一条消息后会显示在这里。</view>
+          <view v-if="!conversations.length" class="conversation-empty">{{ mascots ? '还没有历史对话，先和喵助手聊两句吧～' : '还没有历史对话，发送第一条消息后会显示在这里。' }}</view>
           <view v-for="conversation in conversations" :key="conversation.sessionId" :class="['conversation-item', { active: conversation.sessionId === sessionId }]" @click="selectConversation(conversation.sessionId)">
             <view class="conversation-item-main">
               <text class="conversation-item-title">{{ conversation.title }}</text>
@@ -91,8 +93,13 @@ const conversationListVisible = ref(false)
 const userAvatarFailed = ref(false)
 const inputFocused = ref(false)
 const keyboardHeight = ref(0)
-let keyboardListener = null
+const historyLoading = ref(true)
+const autoFollow = ref(true)
+const messagesViewport = ref(0)
+let keyboardHandler = null
 const userAvatar = computed(() => authStore.profile?.avatar || '')
+// 猫咪主题：mascots 存在即进入猫咪模式（喵化文案 + 专属猫咪头像）
+const mascots = computed(() => themeStore.currentTheme.mascots || null)
 const userInitial = computed(() => (authStore.profile?.username || '我').slice(0, 1).toUpperCase())
 const activeConversationTitle = computed(() => {
   return conversations.value.find((conversation) => conversation.sessionId === sessionId.value)?.title || '新对话'
@@ -121,8 +128,30 @@ onShow(async () => {
   ensureSession()
   await Promise.all([loadConversations(), loadHistory()])
 })
-if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height; if (height > 0) { if (inputFocused.value) scrollBottom() } else inputFocused.value = false })
-onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
+// uni.onKeyboardHeightChange 无返回值，必须保存 handler 引用并在 onUnload 中显式 off，否则重复进入页面会叠加监听
+if (typeof uni.onKeyboardHeightChange === 'function') {
+  keyboardHandler = ({ height }) => {
+    keyboardHeight.value = height
+    if (height > 0) { if (inputFocused.value) scrollBottom() } else inputFocused.value = false
+    nextTick(measureMessagesViewport)
+  }
+  uni.onKeyboardHeightChange(keyboardHandler)
+}
+onUnload(() => {
+  if (keyboardHandler && typeof uni.offKeyboardHeightChange === 'function') uni.offKeyboardHeightChange(keyboardHandler)
+  // #ifdef APP-PLUS
+  abortAppStream()
+  // #endif
+})
+// 用户上翻阅读历史时暂停自动滚底，重新接近底部后恢复跟随
+function onMessagesScroll(e) {
+  if (!messagesViewport.value) return
+  autoFollow.value = e.detail.scrollHeight - e.detail.scrollTop - messagesViewport.value < 120
+}
+function measureMessagesViewport() {
+  uni.createSelectorQuery().select('.messages').boundingClientRect((rect) => { if (rect?.height) messagesViewport.value = rect.height }).exec()
+}
+function followStream() { if (autoFollow.value) scrollBottom() }
 function onInputFocus() { inputFocused.value = true; scrollBottom() }
 function onInputBlur() { inputFocused.value = false }
 function dismissKeyboard() { if (typeof uni.hideKeyboard === 'function') uni.hideKeyboard() }
@@ -141,11 +170,14 @@ async function loadConversations(showError = true) {
   }
 }
 async function loadHistory() {
+  historyLoading.value = true
   try {
     messages.value = await appApi.chatHistory(sessionId.value)
     scrollBottom()
   } catch (error) {
     showRequestError(error)
+  } finally {
+    historyLoading.value = false
   }
 }
 async function openConversationList() {
@@ -191,12 +223,12 @@ async function send() {
     await appApi.streamChat({ message, sessionId: sessionId.value }, (token) => {
       if (token.startsWith('[ERROR]')) throw new Error(token.replace(/^\[ERROR\]\s*/, ''))
       assistantMessage.content += token
-      scrollBottom()
+      followStream()
     })
     // #endif
   } catch (error) {
     if (!assistantMessage.content) messages.value.pop()
-    showRequestError(error)
+    if (error?.message !== 'ABORTED') showRequestError(error)
   } finally {
     assistantMessage.streaming = false
     sending.value = false
@@ -242,7 +274,7 @@ function onStreamToken(token) {
   const active = activeSse
   if (!active || active.finished || !token) return
   active.assistantMessage.content += token
-  scrollBottom()
+  followStream()
 }
 function onStreamDone() {
   const active = activeSse
@@ -255,6 +287,14 @@ function onStreamError(message) {
   if (!active || active.finished) return
   active.finished = true
   active.reject(new Error(message || '对话请求失败'))
+}
+// 页面卸载时终止进行中的流：通过负数 id 下发 abort 指令（正数 id 保留给真实请求），webview 内 fetch 循环随即中止
+function abortAppStream() {
+  if (!activeSse || activeSse.finished) return
+  activeSse.finished = true
+  activeSse.reject(new Error('ABORTED'))
+  sseSequence += 1
+  sseRequestJson.value = JSON.stringify({ id: -sseSequence, abort: true })
 }
 // #endif
 </script>
@@ -270,11 +310,22 @@ function onStreamError(message) {
 .conversation-label { color: #98a2b3; font-size: 21rpx; }
 .conversation-title { overflow: hidden; margin-top: 2rpx; color: #344054; font-size: 29rpx; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .new-conversation { flex-shrink: 0; height: 62rpx; margin: 0; padding: 0 22rpx; border: 1rpx solid #b9d6ff; border-radius: var(--theme-radius-control, 16rpx); color: #1677ff; line-height: 60rpx; background: #f0f7ff; font-size: 24rpx; }
+.history-trigger { display: flex; align-items: center; justify-content: center; width: 62rpx; padding: 0; }
+/* 纯 CSS 时钟图标：App webview 内 u-icon 字形在按钮内受 line-height 影响易变形，改用边框圆 + 指针绘制，颜色随主题 */
+.clock-icon { position: relative; display: block; width: 30rpx; height: 30rpx; border: 3rpx solid var(--theme-primary, #1677ff); border-radius: 50%; box-sizing: border-box; }
+.clock-icon::before { position: absolute; top: 4rpx; left: 50%; width: 3rpx; height: 8rpx; margin-left: -1.5rpx; border-radius: 3rpx; background: var(--theme-primary, #1677ff); content: ''; }
+.clock-icon::after { position: absolute; top: 50%; left: 50%; width: 7rpx; height: 3rpx; margin: -1.5rpx 0 0 -1.5rpx; border-radius: 3rpx; background: var(--theme-primary, #1677ff); content: ''; }
 .new-conversation::after { border: 0; }
 .messages { flex: 1; min-height: 0; padding: 32rpx 24rpx 24rpx; box-sizing: border-box; }
+.history-loading { padding: 80rpx 0; color: #98a2b3; text-align: center; font-size: 26rpx; }
 .welcome { display: flex; flex-direction: column; align-items: center; margin: 116rpx 20rpx; color: #667085; text-align: center; line-height: 1.8; }
 .welcome-avatar,.message-avatar { display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; border-radius: 50%; font-weight: 700; }
-.avatar-mascot { width: 100%; height: 100%; }
+.avatar-mascot { width: 100%; height: 100%; border-radius: 50%; background: #fff; }
+/* 猫咪主题：欢迎区爪印装饰 */
+.welcome-paws { display: flex; align-items: center; justify-content: center; gap: 26rpx; margin-top: 26rpx; }
+.welcome-paws image { width: 34rpx; height: 34rpx; opacity: .7; transform: rotate(16deg); }
+.welcome-paws image:nth-child(2) { width: 44rpx; height: 44rpx; opacity: .95; transform: rotate(-14deg); }
+.welcome-paws image:last-child { transform: rotate(-24deg); }
 .welcome-avatar { width: 104rpx; height: 104rpx; margin-bottom: 22rpx; color: #fff; background: linear-gradient(135deg, #1677ff, #76aeff); box-shadow: 0 10rpx 24rpx rgba(22, 119, 255, .2); font-size: 34rpx; }
 .welcome-title { display: block; margin-bottom: 10rpx; color: #344054; font-size: 36rpx; font-weight: 600; }
 .welcome-description { color: #667085; font-size: 27rpx; }
@@ -304,13 +355,14 @@ function onStreamError(message) {
 .send::after { border: 0; }
 .send-ready { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .2); }
 .send-ready:active { transform: scale(.96); }
-.conversation-mask { position: fixed; z-index: 10; top: 0; right: 24rpx; bottom: calc(148rpx + var(--tab-bar-height, 0rpx) + env(safe-area-inset-bottom)); left: 24rpx; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); border-radius: 28rpx 28rpx 0 0; }
-.conversation-panel { display: flex; width: 100%; max-height: 76vh; flex-direction: column; padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; box-sizing: border-box; }
+.conversation-mask { position: fixed; z-index: 10; top: 0; right: 0; bottom: calc(148rpx + var(--tab-bar-height, 0rpx) + env(safe-area-inset-bottom)); left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }
+.conversation-panel { display: flex; width: calc(100% - 48rpx); max-height: 76vh; margin: 0 24rpx; flex-direction: column; padding: 28rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-radius: 28rpx 28rpx 0 0; background: #fff; box-sizing: border-box; }
 .conversation-panel-header { display: flex; align-items: center; justify-content: space-between; padding-bottom: 22rpx; }
 .conversation-panel-title { color: #1d2939; font-size: 34rpx; font-weight: 700; }
-.conversation-close { color: #667085; font-size: 26rpx; }
+.conversation-close { padding: 14rpx 6rpx; color: #667085; font-size: 26rpx; }
+.conversation-close:active { opacity: .6; }
 .conversation-create { height: 76rpx; margin: 0 0 20rpx; border: 0; border-radius: 18rpx; color: #fff; line-height: 76rpx; background: #1677ff; font-size: 27rpx; }
-.conversation-list { max-height: 52vh; }
+.conversation-list { max-height: 52vh; overscroll-behavior: contain; }
 .conversation-empty { padding: 56rpx 28rpx; color: #98a2b3; text-align: center; font-size: 26rpx; line-height: 1.6; }
 .conversation-item { display: flex; align-items: center; gap: 18rpx; min-height: 104rpx; padding: 18rpx 20rpx; border-bottom: 1rpx solid #f0f2f5; border-radius: 16rpx; box-sizing: border-box; }
 .conversation-item.active { background: #f0f7ff; }

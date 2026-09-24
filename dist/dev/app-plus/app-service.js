@@ -40,6 +40,7 @@ if (uni.restoreGlobal) {
   var _a;
   const ON_SHOW = "onShow";
   const ON_LOAD = "onLoad";
+  const ON_READY = "onReady";
   const ON_UNLOAD = "onUnload";
   function formatAppLog(type2, filename, ...args) {
     if (uni.__log__) {
@@ -66,19 +67,29 @@ if (uni.restoreGlobal) {
     2
     /* HookFlags.PAGE */
   );
+  const onReady = /* @__PURE__ */ createLifeCycleHook(
+    ON_READY,
+    2
+    /* HookFlags.PAGE */
+  );
   const onUnload = /* @__PURE__ */ createLifeCycleHook(
     ON_UNLOAD,
     2
     /* HookFlags.PAGE */
   );
   var define_import_meta_env_default = {};
-  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "http://8.156.85.200:8080";
+  const API_BASE_URL = define_import_meta_env_default.VITE_API_BASE_URL || "https://api.mechi-qyopa.me";
   const APP_TOKEN_KEY = "mechi_app_token";
   const APP_REFRESH_TOKEN_KEY = "mechi_app_refresh_token";
   const APP_PROFILE_KEY = "mechi_app_profile";
   const APP_THEME_KEY = "mechi_app_theme";
   const parseProfile = () => {
-    const value2 = uni.getStorageSync(APP_PROFILE_KEY);
+    let value2 = "";
+    try {
+      value2 = uni.getStorageSync(APP_PROFILE_KEY);
+    } catch {
+      return null;
+    }
     if (!value2)
       return null;
     try {
@@ -92,8 +103,16 @@ if (uni.restoreGlobal) {
     refreshToken: "",
     profile: null,
     restore() {
-      this.token = uni.getStorageSync(APP_TOKEN_KEY) || "";
-      this.refreshToken = uni.getStorageSync(APP_REFRESH_TOKEN_KEY) || "";
+      try {
+        this.token = uni.getStorageSync(APP_TOKEN_KEY) || "";
+      } catch {
+        this.token = "";
+      }
+      try {
+        this.refreshToken = uni.getStorageSync(APP_REFRESH_TOKEN_KEY) || "";
+      } catch {
+        this.refreshToken = "";
+      }
       this.profile = parseProfile();
     },
     setLogin(token, refreshToken, profile) {
@@ -143,6 +162,7 @@ if (uni.restoreGlobal) {
         url: `${API_BASE_URL}/api/v1/app/token/refresh`,
         method: "POST",
         data: { refreshToken: authStore.refreshToken },
+        timeout: 15e3,
         header: {
           Accept: "application/json",
           "Content-Type": "application/json"
@@ -155,7 +175,7 @@ if (uni.restoreGlobal) {
           authStore.setTokens(data.token, data.refreshToken);
           resolve();
         },
-        fail: () => reject(new Error("网络连接失败，请检查服务地址"))
+        fail: ({ errMsg = "" } = {}) => reject(new Error(errMsg.includes("timeout") ? "登录状态刷新超时，请检查网络后重试" : "网络连接失败，请检查服务地址"))
       });
     }).finally(() => {
       refreshPromise = null;
@@ -168,6 +188,7 @@ if (uni.restoreGlobal) {
         url: `${API_BASE_URL}${url2}`,
         method,
         data,
+        timeout: 15e3,
         header: {
           Accept: "application/json",
           ...data ? { "Content-Type": "application/json" } : {},
@@ -201,7 +222,7 @@ if (uni.restoreGlobal) {
           }
           resolve(body);
         },
-        fail: () => reject(new Error("网络连接失败，请检查服务地址"))
+        fail: ({ errMsg = "" } = {}) => reject(new Error(errMsg.includes("timeout") ? "请求超时，请检查网络后重试" : "网络连接失败，请检查服务地址"))
       });
     });
   }
@@ -402,6 +423,7 @@ if (uni.restoreGlobal) {
           ...authStore.token ? { "X-App-Token": authStore.token } : {}
         },
         success: ({ statusCode, data }) => {
+          var _a2;
           let body;
           try {
             body = typeof data === "string" ? JSON.parse(data) : data;
@@ -420,11 +442,16 @@ if (uni.restoreGlobal) {
             reject(new Error("登录已过期，请重新登录"));
             return;
           }
-          if (statusCode < 200 || statusCode >= 300 || !(body == null ? void 0 : body.url)) {
+          if (statusCode < 200 || statusCode >= 300 || !body || body.code !== void 0 && body.code !== 0) {
             reject(new Error((body == null ? void 0 : body.msg) || "头像上传失败"));
             return;
           }
-          resolve(body.url);
+          const url2 = ((_a2 = body.data) == null ? void 0 : _a2.url) || body.url;
+          if (!url2) {
+            reject(new Error("头像上传失败"));
+            return;
+          }
+          resolve(url2);
         },
         fail: () => reject(new Error("头像上传失败，请检查网络连接"))
       });
@@ -599,7 +626,8 @@ if (uni.restoreGlobal) {
                 "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.username = $event),
                 class: "input",
                 placeholder: "用户名",
-                maxlength: "32"
+                maxlength: "32",
+                "confirm-type": "next"
               },
               null,
               512
@@ -619,11 +647,13 @@ if (uni.restoreGlobal) {
                 class: "input form-space",
                 placeholder: "密码",
                 password: "",
-                maxlength: "72"
+                maxlength: "72",
+                "confirm-type": "go",
+                onConfirm: $setup.submit
               },
               null,
-              512
-              /* NEED_PATCH */
+              544
+              /* NEED_HYDRATION, NEED_PATCH */
             ), [
               [vue.vModelText, $setup.form.password]
             ]),
@@ -699,7 +729,8 @@ if (uni.restoreGlobal) {
             "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.username = $event),
             class: "input",
             placeholder: "用户名（3-32 位字母、数字或下划线）",
-            maxlength: "32"
+            maxlength: "32",
+            "confirm-type": "next"
           },
           null,
           512
@@ -719,7 +750,8 @@ if (uni.restoreGlobal) {
             class: "input form-space",
             type: "number",
             placeholder: "手机号",
-            maxlength: "11"
+            maxlength: "11",
+            "confirm-type": "next"
           },
           null,
           512
@@ -734,7 +766,8 @@ if (uni.restoreGlobal) {
             class: "input form-space",
             placeholder: "密码（至少 8 位）",
             password: "",
-            maxlength: "72"
+            maxlength: "72",
+            "confirm-type": "next"
           },
           null,
           512
@@ -749,11 +782,13 @@ if (uni.restoreGlobal) {
             class: "input form-space",
             placeholder: "确认密码",
             password: "",
-            maxlength: "72"
+            maxlength: "72",
+            "confirm-type": "go",
+            onConfirm: $setup.submit
           },
           null,
-          512
-          /* NEED_PATCH */
+          544
+          /* NEED_HYDRATION, NEED_PATCH */
         ), [
           [vue.vModelText, $setup.confirmPassword]
         ]),
@@ -5377,6 +5412,14 @@ if (uni.restoreGlobal) {
   function formatAmount(value2) {
     return Number(value2 || 0).toFixed(2);
   }
+  const WEEKDAY_LABELS = ["日", "一", "二", "三", "四", "五", "六"];
+  function dateParts(dateString) {
+    return { year: Number(dateString.slice(0, 4)), month: Number(dateString.slice(5, 7)) - 1, day: Number(dateString.slice(8, 10)) };
+  }
+  function formatDayLabel(dateString) {
+    const { year, month, day } = dateParts(dateString);
+    return `${month + 1}月${day}日 星期${WEEKDAY_LABELS[new Date(year, month, day).getDay()]}`;
+  }
   const THEMES = [
     {
       id: "ocean",
@@ -5411,6 +5454,57 @@ if (uni.restoreGlobal) {
       colors: { primary: "#e85d8c", primaryEnd: "#f28bb0", primarySoft: "#fff0f5", primaryShadow: "rgba(232, 93, 140, .26)", pageBackground: "#fff7fa", surface: "#ffffff", text: "#3b202b", textStrong: "#5b3141", textSecondary: "#8a6572", textMuted: "#b395a0", border: "#f6e3ea", chart: ["#e85d8c", "#f28bb0", "#f5acc5", "#ef78a2", "#f8c6d8", "#fbe0e9"], tabInactive: "#a48b95" }
     },
     {
+      id: "kitty",
+      name: "喵喵星球",
+      description: "贴纸猫猫陪伴的治愈记账",
+      // 主吉祥物（默认头像/主题卡），mascots 为各页面专属猫咪贴纸；页面按 mascots 是否存在进入猫咪模式
+      // 素材：用户提供贴纸合集（D:\doc\需求\my\素材），sharp 切格+边缘泛洪去白底（保留猫脸白色）
+      mascot: "/static/kitty-avatar.png",
+      mascots: {
+        avatar: "/static/kitty-avatar.png",
+        // 苹果猫：汇总卡/主题卡/助手欢迎
+        mini: "/static/kitty-mini.png",
+        // 橘子猫：流水页周期旁
+        watermelon: "/static/kitty-watermelon.png",
+        // 西瓜猫：流水明细标题旁
+        chat: "/static/kitty-chat.png",
+        // 信封爱心猫：助手 AI 消息头像
+        smile: "/static/kitty-smile.png",
+        // 吐司厨师猫：记账页头部
+        empty: "/static/kitty-empty.png",
+        // 雪糕猫：空状态（流水/统计/分类）
+        footer: "/static/kitty-footer.png",
+        // 爆米花三猫：流水列表尾部
+        shock: "/static/kitty-shock.png",
+        // 购物车猫：统计汇总卡
+        smug: "/static/kitty-smug.png",
+        // 汽车猫：统计页周期旁
+        cake: "/static/kitty-cake.png",
+        // 生日蛋糕猫：统计页尾部
+        tabcat: "/static/kitty-tabcat.png",
+        // 甜甜圈猫：tab bar 探头
+        cherry: "/static/kitty-cherry.png",
+        // 樱桃猫：流水每日装饰/tab 选中指示
+        calendar: "/static/kitty-calendar.png",
+        // 日历猫：记账日历标题旁
+        milk: "/static/kitty-milk.png",
+        // 牛奶猫：键盘"今天"键
+        fork: "/static/kitty-fork.png",
+        // 叉子猫：统计趋势卡标题旁
+        note: "/static/kitty-note.png",
+        // 笔记本猫：统计占比卡标题旁
+        strawberry: "/static/kitty-strawberry.png",
+        // 草莓猫：助手欢迎三连
+        rice: "/static/kitty-rice.png",
+        // 饭团猫：助手欢迎三连
+        peach: "/static/kitty-peach.png"
+        // 桃子猫：助手欢迎三连
+      },
+      icons: { tab: ["order", "integral", "chat", "heart"] },
+      shape: { card: "36rpx", control: "24rpx" },
+      colors: { primary: "#f59e42", primaryEnd: "#fcc675", primarySoft: "#fdf3e2", primaryShadow: "rgba(245, 158, 66, .26)", pageBackground: "#fdf8ef", surface: "#ffffff", text: "#3d2c1e", textStrong: "#5c4530", textSecondary: "#8a7460", textMuted: "#b5a18c", border: "#f1e6d4", chart: ["#f59e42", "#fcc675", "#feddab", "#d98a3f", "#b9743a", "#8f5a2e"], tabInactive: "#a99a87" }
+    },
+    {
       id: "violet",
       name: "夜幕紫",
       description: "克制、沉稳的深色界面",
@@ -5435,6 +5529,7 @@ if (uni.restoreGlobal) {
     forest: "hue-rotate(-53deg) saturate(.82) brightness(.61)",
     sunset: "hue-rotate(168deg) saturate(.79) brightness(.94)",
     blossom: "hue-rotate(128deg) saturate(.65) brightness(.91)",
+    kitty: "hue-rotate(183deg) saturate(.8) brightness(.96)",
     violet: "hue-rotate(46deg) saturate(.75) brightness(1.28)",
     obsidian: "hue-rotate(-170deg) saturate(.6) brightness(1.06)"
   };
@@ -5501,7 +5596,7 @@ if (uni.restoreGlobal) {
           }
         }
       } catch (error2) {
-        formatAppLog("log", "at stores/theme.js:146", "[theme] setStatusBarStyle failed:", error2);
+        formatAppLog("log", "at stores/theme.js:179", "[theme] decorView status bar update failed:", error2);
       }
     } else {
       try {
@@ -5546,7 +5641,11 @@ if (uni.restoreGlobal) {
       return cssVariables(this.currentTheme);
     },
     restore() {
-      const storedId = uni.getStorageSync(APP_THEME_KEY);
+      let storedId = "";
+      try {
+        storedId = uni.getStorageSync(APP_THEME_KEY);
+      } catch {
+      }
       this.id = resolveTheme(storedId).id;
       applyDocumentTheme(this.currentTheme);
       applyNativeTheme(this.currentTheme);
@@ -5554,7 +5653,10 @@ if (uni.restoreGlobal) {
     setTheme(id) {
       const theme = resolveTheme(id);
       this.id = theme.id;
-      uni.setStorageSync(APP_THEME_KEY, theme.id);
+      try {
+        uni.setStorageSync(APP_THEME_KEY, theme.id);
+      } catch {
+      }
       applyDocumentTheme(theme);
       applyNativeTheme(theme);
     },
@@ -5667,6 +5769,7 @@ if (uni.restoreGlobal) {
     __name: "index",
     setup(__props, { expose: __expose }) {
       __expose();
+      const mascots = vue.computed(() => themeStore.currentTheme.mascots || null);
       const tabs = [
         { pagePath: "pages/ledger/index", text: "账本" },
         { pagePath: "pages/ledger/expense-statistics", text: "统计" },
@@ -5711,7 +5814,7 @@ if (uni.restoreGlobal) {
           fail: syncSelected
         });
       }
-      const __returned__ = { tabs, selected, instance: instance2, measureHeight, syncSelected, switchTab, getCurrentInstance: vue.getCurrentInstance, nextTick: vue.nextTick, onMounted: vue.onMounted, ref: vue.ref, get onShow() {
+      const __returned__ = { mascots, tabs, selected, instance: instance2, measureHeight, syncSelected, switchTab, computed: vue.computed, getCurrentInstance: vue.getCurrentInstance, nextTick: vue.nextTick, onMounted: vue.onMounted, ref: vue.ref, get onShow() {
         return onShow;
       }, get themeStore() {
         return themeStore;
@@ -5729,6 +5832,12 @@ if (uni.restoreGlobal) {
         style: vue.normalizeStyle($setup.themeStore.cssVariables)
       },
       [
+        $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+          key: 0,
+          class: "tab-cat",
+          src: $setup.mascots.tabcat,
+          mode: "aspectFit"
+        }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
         (vue.openBlock(), vue.createElementBlock(
           vue.Fragment,
           null,
@@ -5739,6 +5848,12 @@ if (uni.restoreGlobal) {
               onClick: ($event) => $setup.switchTab(tab)
             }, [
               vue.createElementVNode("view", { class: "tab-icon-wrap" }, [
+                $setup.mascots && $setup.selected === tab.pagePath ? (vue.openBlock(), vue.createElementBlock("image", {
+                  key: 0,
+                  class: "tab-active-paw",
+                  src: $setup.mascots.cherry,
+                  mode: "aspectFit"
+                }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
                 vue.createVNode(_component_u_icon, {
                   name: $setup.themeStore.currentTheme.icons.tab[index2],
                   size: 23,
@@ -5748,7 +5863,7 @@ if (uni.restoreGlobal) {
               vue.createElementVNode(
                 "text",
                 { class: "tab-label" },
-                vue.toDisplayString(tab.text),
+                vue.toDisplayString($setup.mascots ? tab.text + "喵" : tab.text),
                 1
                 /* TEXT */
               )
@@ -5769,6 +5884,7 @@ if (uni.restoreGlobal) {
     setup(__props, { expose: __expose }) {
       __expose();
       const range2 = vue.reactive(monthRange());
+      const mascots = vue.computed(() => themeStore.currentTheme.mascots || null);
       const summary = vue.reactive({ incomeTotal: 0, expenseTotal: 0, netAmount: 0 });
       const categories = vue.ref([]);
       const transactions = vue.ref([]);
@@ -5780,7 +5896,6 @@ if (uni.restoreGlobal) {
       const periodType = vue.ref("MONTH");
       const pickerModes = [{ value: "WEEK", label: "按周" }, { value: "MONTH", label: "按月" }, { value: "YEAR", label: "按年" }];
       const months = Array.from({ length: 12 }, (_2, index2) => ({ value: index2, label: `${index2 + 1}月` }));
-      const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
       let requestId = 0;
       const ledgerCache = /* @__PURE__ */ new Map();
       const categoryMap = vue.computed(() => buildCategoryMap(categories.value));
@@ -5845,13 +5960,6 @@ if (uni.restoreGlobal) {
           if (currentRequest === requestId)
             loading.value = false;
         }
-      }
-      function dateParts(dateString) {
-        return { year: Number(dateString.slice(0, 4)), month: Number(dateString.slice(5, 7)) - 1, day: Number(dateString.slice(8, 10)) };
-      }
-      function formatDayLabel(dateString) {
-        const { year, month, day } = dateParts(dateString);
-        return `${month + 1}月${day}日 星期${weekdayLabels[new Date(year, month, day).getDay()]}`;
       }
       function openPicker() {
         const date3 = dateParts(range2.startDate);
@@ -5939,22 +6047,26 @@ if (uni.restoreGlobal) {
           }
         } });
       }
-      const __returned__ = { range: range2, summary, categories, transactions, loading, pickerVisible, pickerMode, pickerYear, pickerMonth, periodType, pickerModes, months, weekdayLabels, get requestId() {
+      const __returned__ = { range: range2, mascots, summary, categories, transactions, loading, pickerVisible, pickerMode, pickerYear, pickerMonth, periodType, pickerModes, months, get requestId() {
         return requestId;
       }, set requestId(v2) {
         requestId = v2;
-      }, CACHE_TTL, ledgerCache, categoryMap, transactionGroups, years, weeks, pickerHeading, periodTitle, load, dateParts, formatDayLabel, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, categoryName, getCategoryIcon, getCategoryImage, goCreate, goEdit, remove: remove2, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
+      }, CACHE_TTL, ledgerCache, categoryMap, transactionGroups, years, weeks, pickerHeading, periodTitle, load, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, categoryName, getCategoryIcon, getCategoryImage, goCreate, goEdit, remove: remove2, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
       }, get formatAmount() {
         return formatAmount;
+      }, get formatDayLabel() {
+        return formatDayLabel;
       }, get monthRange() {
         return monthRange;
       }, get weekRangesInMonth() {
         return weekRangesInMonth;
       }, get yearRange() {
         return yearRange;
+      }, get dateParts() {
+        return dateParts;
       }, get showRequestError() {
         return showRequestError;
       }, get themeStore() {
@@ -5984,21 +6096,29 @@ if (uni.restoreGlobal) {
           class: "range-bar",
           onClick: $setup.openPicker
         }, [
-          vue.createElementVNode("view", null, [
-            vue.createElementVNode(
-              "text",
-              { class: "range-title" },
-              vue.toDisplayString($setup.periodTitle),
-              1
-              /* TEXT */
-            ),
-            vue.createElementVNode(
-              "text",
-              { class: "range-detail" },
-              vue.toDisplayString($setup.range.startDate) + " 至 " + vue.toDisplayString($setup.range.endDate),
-              1
-              /* TEXT */
-            )
+          vue.createElementVNode("view", { class: "range-info" }, [
+            $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+              key: 0,
+              class: "mini-cat",
+              src: $setup.mascots.mini,
+              mode: "aspectFit"
+            }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+            vue.createElementVNode("view", null, [
+              vue.createElementVNode(
+                "text",
+                { class: "range-title" },
+                vue.toDisplayString($setup.periodTitle),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode(
+                "text",
+                { class: "range-detail" },
+                vue.toDisplayString($setup.range.startDate) + " 至 " + vue.toDisplayString($setup.range.endDate),
+                1
+                /* TEXT */
+              )
+            ])
           ]),
           vue.createElementVNode("view", { class: "range-actions" }, [
             vue.createElementVNode("view", { class: "range-arrow" })
@@ -6034,17 +6154,32 @@ if (uni.restoreGlobal) {
               1
               /* TEXT */
             )
-          ])
+          ]),
+          $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+            key: 0,
+            class: "summary-avatar",
+            src: $setup.mascots.avatar,
+            mode: "aspectFit"
+          }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
         ]),
         vue.createElementVNode("view", { class: "list-title" }, [
-          vue.createTextVNode("流水明细 "),
-          vue.createElementVNode(
-            "text",
-            { class: "muted" },
-            vue.toDisplayString($setup.transactions.length) + " 笔",
-            1
-            /* TEXT */
-          )
+          vue.createElementVNode("view", { class: "list-title-main" }, [
+            vue.createTextVNode("流水明细 "),
+            $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+              key: 0,
+              class: "title-paw",
+              src: $setup.mascots.watermelon,
+              mode: "aspectFit"
+            }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+            vue.createTextVNode(),
+            vue.createElementVNode(
+              "text",
+              { class: "muted" },
+              vue.toDisplayString($setup.transactions.length) + " 笔",
+              1
+              /* TEXT */
+            )
+          ])
         ]),
         $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
           key: 0,
@@ -6052,7 +6187,21 @@ if (uni.restoreGlobal) {
         }, "加载中…")) : !$setup.transactions.length ? (vue.openBlock(), vue.createElementBlock("view", {
           key: 1,
           class: "empty"
-        }, "这个时间段还没有流水")) : (vue.openBlock(), vue.createElementBlock("view", {
+        }, [
+          $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+            key: 0,
+            class: "empty-cat",
+            src: $setup.mascots.empty,
+            mode: "aspectFit"
+          }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+          vue.createElementVNode(
+            "text",
+            null,
+            vue.toDisplayString($setup.mascots ? "喵呜，这个时间段还没有流水" : "这个时间段还没有流水"),
+            1
+            /* TEXT */
+          )
+        ])) : (vue.openBlock(), vue.createElementBlock("view", {
           key: 2,
           class: "day-groups"
         }, [
@@ -6065,13 +6214,21 @@ if (uni.restoreGlobal) {
                 class: "day-group"
               }, [
                 vue.createElementVNode("view", { class: "day-header" }, [
-                  vue.createElementVNode(
-                    "text",
-                    { class: "day-label" },
-                    vue.toDisplayString(group.label),
-                    1
-                    /* TEXT */
-                  ),
+                  vue.createElementVNode("view", { class: "day-label-wrap" }, [
+                    $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                      key: 0,
+                      class: "day-paw",
+                      src: $setup.mascots.cherry,
+                      mode: "aspectFit"
+                    }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "day-label" },
+                      vue.toDisplayString(group.label),
+                      1
+                      /* TEXT */
+                    )
+                  ]),
                   vue.createElementVNode("view", { class: "day-meta" }, [
                     vue.createElementVNode(
                       "text",
@@ -6168,10 +6325,22 @@ if (uni.restoreGlobal) {
             }),
             128
             /* KEYED_FRAGMENT */
-          ))
+          )),
+          $setup.mascots ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 0,
+            class: "ledger-cat-footer"
+          }, [
+            vue.createElementVNode("image", {
+              src: $setup.mascots.footer,
+              mode: "aspectFit"
+            }, null, 8, ["src"]),
+            vue.createElementVNode("text", null, "喵，这个期间的账都翻完啦～")
+          ])) : vue.createCommentVNode("v-if", true)
         ])),
         vue.createElementVNode("view", {
           class: "add-fab",
+          "aria-label": "记一笔",
+          role: "button",
           onClick: $setup.goCreate
         }, [
           vue.createVNode(_component_u_icon, {
@@ -6300,6 +6469,7 @@ if (uni.restoreGlobal) {
     setup(__props, { expose: __expose }) {
       __expose();
       const range2 = vue.reactive(monthRange());
+      const mascots = vue.computed(() => themeStore.currentTheme.mascots || null);
       const periodType = vue.ref("MONTH");
       const pickerVisible = vue.ref(false);
       const pickerMode = vue.ref("MONTH");
@@ -6314,10 +6484,10 @@ if (uni.restoreGlobal) {
       const pickerModes = [{ value: "WEEK", label: "按周" }, { value: "MONTH", label: "按月" }, { value: "YEAR", label: "按年" }];
       const months = Array.from({ length: 12 }, (_2, index2) => ({ value: index2, label: `${index2 + 1}月` }));
       const pieColors = vue.computed(() => themeStore.currentTheme.colors.chart);
-      const screenWidth = uni.getSystemInfoSync().windowWidth || 375;
-      const trendPlotWidth = screenWidth * 566 / 750;
-      const trendPlotHeight = screenWidth * 184 / 750;
+      const screenWidth = uni.getWindowInfo().windowWidth || 375;
       const trendPlotPadding = screenWidth * 12 / 750;
+      const trendPlotWidth = vue.ref(screenWidth * 566 / 750);
+      const trendPlotHeight = vue.ref(screenWidth * 184 / 750);
       let requestId = 0;
       const years = vue.computed(() => Array.from({ length: 12 }, (_2, index2) => pickerYear.value - 11 + index2));
       const weeks = vue.computed(() => weekRangesInMonth(pickerYear.value, pickerMonth.value));
@@ -6329,13 +6499,13 @@ if (uni.restoreGlobal) {
       const trendPoints = vue.computed(() => {
         const data = trendData.value;
         const max = Math.max(1, ...data.map((item) => item.amount));
-        const innerWidth = Math.max(1, trendPlotWidth - trendPlotPadding * 2);
-        const innerHeight = Math.max(1, trendPlotHeight - trendPlotPadding * 2);
+        const innerWidth = Math.max(1, trendPlotWidth.value - trendPlotPadding * 2);
+        const innerHeight = Math.max(1, trendPlotHeight.value - trendPlotPadding * 2);
         return data.map((item, index2) => {
           const ratio = data.length === 1 ? 0.5 : index2 / (data.length - 1);
           const x2 = trendPlotPadding + innerWidth * ratio;
           const y2 = trendPlotPadding + innerHeight * item.amount / max;
-          return { key: item.key, label: item.label, x: x2, y: y2, style: { left: `${x2}px`, bottom: `${y2}px` }, labelStyle: { left: `${x2 / trendPlotWidth * 100}%` } };
+          return { key: item.key, label: item.label, x: x2, y: y2, style: { left: `${x2}px`, bottom: `${y2}px` }, labelStyle: { left: `${x2 / trendPlotWidth.value * 100}%` } };
         });
       });
       const trendSegments = vue.computed(() => trendPoints.value.slice(1).map((point, index2) => {
@@ -6375,6 +6545,15 @@ if (uni.restoreGlobal) {
         return { backgroundImage: `conic-gradient(${segments.join(", ")})` };
       });
       onShow(load);
+      onReady(measureTrendPlot);
+      function measureTrendPlot() {
+        uni.createSelectorQuery().select(".trend-plot").boundingClientRect((rect) => {
+          if ((rect == null ? void 0 : rect.width) && (rect == null ? void 0 : rect.height)) {
+            trendPlotWidth.value = rect.width;
+            trendPlotHeight.value = rect.height;
+          }
+        }).exec();
+      }
       async function load() {
         const currentRequest = ++requestId;
         loading.value = true;
@@ -6391,8 +6570,10 @@ if (uni.restoreGlobal) {
           if (currentRequest === requestId)
             showRequestError(error2);
         } finally {
-          if (currentRequest === requestId)
+          if (currentRequest === requestId) {
             loading.value = false;
+            vue.nextTick(measureTrendPlot);
+          }
         }
       }
       function setPeriodType(type2) {
@@ -6595,11 +6776,13 @@ if (uni.restoreGlobal) {
       function pieColor(index2) {
         return pieColors.value[index2 % pieColors.value.length];
       }
-      const __returned__ = { range: range2, periodType, pickerVisible, pickerMode, pickerYear, pickerMonth, loading, trendData, categoryStats, expenseTotal, expenseTransactions, periodOptions, pickerModes, months, pieColors, screenWidth, trendPlotWidth, trendPlotHeight, trendPlotPadding, get requestId() {
+      const __returned__ = { range: range2, mascots, periodType, pickerVisible, pickerMode, pickerYear, pickerMonth, loading, trendData, categoryStats, expenseTotal, expenseTransactions, periodOptions, pickerModes, months, pieColors, screenWidth, trendPlotPadding, trendPlotWidth, trendPlotHeight, get requestId() {
         return requestId;
       }, set requestId(v2) {
         requestId = v2;
-      }, years, weeks, pickerHeading, periodTitle, trendUnitLabel, peakAmount, averageExpense, trendPoints, trendSegments, trendLabelPoints, pieChartStyle, load, setPeriodType, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, selectCustomStart, selectCustomEnd, goCategoryDetail, aggregateExpenses, resolveTrendKey, createTrendBuckets, parseDate, pieColor, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onShow() {
+      }, years, weeks, pickerHeading, periodTitle, trendUnitLabel, peakAmount, averageExpense, trendPoints, trendSegments, trendLabelPoints, pieChartStyle, measureTrendPlot, load, setPeriodType, openPicker, closePicker, previousPicker, nextPicker, commitRange, selectMonth, selectYear, selectWeek, isActiveMonth, isActiveYear, isActiveWeek, weekLabel, selectCustomStart, selectCustomEnd, goCategoryDetail, aggregateExpenses, resolveTrendKey, createTrendBuckets, parseDate, pieColor, computed: vue.computed, nextTick: vue.nextTick, reactive: vue.reactive, ref: vue.ref, get onReady() {
+        return onReady;
+      }, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -6695,21 +6878,29 @@ if (uni.restoreGlobal) {
                 class: "range-control",
                 onClick: $setup.openPicker
               }, [
-                vue.createElementVNode("view", null, [
-                  vue.createElementVNode(
-                    "text",
-                    { class: "range-title" },
-                    vue.toDisplayString($setup.periodTitle),
-                    1
-                    /* TEXT */
-                  ),
-                  vue.createElementVNode(
-                    "text",
-                    { class: "range-detail" },
-                    vue.toDisplayString($setup.range.startDate) + " 至 " + vue.toDisplayString($setup.range.endDate),
-                    1
-                    /* TEXT */
-                  )
+                vue.createElementVNode("view", { class: "range-info" }, [
+                  $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "mini-cat",
+                    src: $setup.mascots.smug,
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                  vue.createElementVNode("view", null, [
+                    vue.createElementVNode(
+                      "text",
+                      { class: "range-title" },
+                      vue.toDisplayString($setup.periodTitle),
+                      1
+                      /* TEXT */
+                    ),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "range-detail" },
+                      vue.toDisplayString($setup.range.startDate) + " 至 " + vue.toDisplayString($setup.range.endDate),
+                      1
+                      /* TEXT */
+                    )
+                  ])
                 ]),
                 vue.createElementVNode("view", { class: "range-actions" }, [
                   vue.createElementVNode("view", { class: "range-arrow" })
@@ -6742,19 +6933,33 @@ if (uni.restoreGlobal) {
                   1
                   /* TEXT */
                 )
-              ])
+              ]),
+              $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                key: 0,
+                class: "summary-avatar",
+                src: $setup.mascots.shock,
+                mode: "aspectFit"
+              }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
             ]),
             vue.createElementVNode("view", { class: "card trend-card" }, [
               vue.createElementVNode("view", { class: "card-header" }, [
-                vue.createElementVNode("view", null, [
-                  vue.createElementVNode("text", { class: "card-title" }, "支出趋势"),
-                  vue.createElementVNode(
-                    "text",
-                    { class: "card-subtitle" },
-                    vue.toDisplayString($setup.trendUnitLabel) + "统计",
-                    1
-                    /* TEXT */
-                  )
+                vue.createElementVNode("view", { class: "card-title-wrap" }, [
+                  $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "card-paw",
+                    src: $setup.mascots.fork,
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                  vue.createElementVNode("view", null, [
+                    vue.createElementVNode("text", { class: "card-title" }, "支出趋势"),
+                    vue.createElementVNode(
+                      "text",
+                      { class: "card-subtitle" },
+                      vue.toDisplayString($setup.trendUnitLabel) + "统计",
+                      1
+                      /* TEXT */
+                    )
+                  ])
                 ]),
                 vue.createElementVNode(
                   "text",
@@ -6846,13 +7051,35 @@ if (uni.restoreGlobal) {
               ])) : !$setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
                 key: 1,
                 class: "chart-empty"
-              }, "该区间暂无支出记录")) : vue.createCommentVNode("v-if", true)
+              }, [
+                $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                  key: 0,
+                  class: "empty-cat",
+                  src: $setup.mascots.empty,
+                  mode: "aspectFit"
+                }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                vue.createElementVNode(
+                  "text",
+                  null,
+                  vue.toDisplayString($setup.mascots ? "喵呜，该区间暂无支出记录" : "该区间暂无支出记录"),
+                  1
+                  /* TEXT */
+                )
+              ])) : vue.createCommentVNode("v-if", true)
             ]),
             vue.createElementVNode("view", { class: "card category-card" }, [
               vue.createElementVNode("view", { class: "card-header" }, [
-                vue.createElementVNode("view", null, [
-                  vue.createElementVNode("text", { class: "card-title" }, "支出占比"),
-                  vue.createElementVNode("text", { class: "card-subtitle" }, "按分类汇总")
+                vue.createElementVNode("view", { class: "card-title-wrap" }, [
+                  $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "card-paw",
+                    src: $setup.mascots.note,
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                  vue.createElementVNode("view", null, [
+                    vue.createElementVNode("text", { class: "card-title" }, "支出占比"),
+                    vue.createElementVNode("text", { class: "card-subtitle" }, "按分类汇总")
+                  ])
                 ]),
                 vue.createElementVNode(
                   "text",
@@ -7004,11 +7231,41 @@ if (uni.restoreGlobal) {
               ])) : !$setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
                 key: 2,
                 class: "empty"
-              }, "该区间暂无支出分类")) : (vue.openBlock(), vue.createElementBlock("view", {
+              }, [
+                $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                  key: 0,
+                  class: "empty-cat",
+                  src: $setup.mascots.empty,
+                  mode: "aspectFit"
+                }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                vue.createElementVNode(
+                  "text",
+                  null,
+                  vue.toDisplayString($setup.mascots ? "喵呜，该区间暂无支出分类" : "该区间暂无支出分类"),
+                  1
+                  /* TEXT */
+                )
+              ])) : (vue.openBlock(), vue.createElementBlock("view", {
                 key: 3,
                 class: "empty"
               }, "加载中…"))
             ]),
+            $setup.mascots ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "ledger-cat-footer"
+            }, [
+              vue.createElementVNode("image", {
+                src: $setup.mascots.cake,
+                mode: "aspectFit"
+              }, null, 8, ["src"]),
+              vue.createElementVNode(
+                "text",
+                null,
+                "喵，" + vue.toDisplayString($setup.periodTitle) + "的支出都看完啦～",
+                1
+                /* TEXT */
+              )
+            ])) : vue.createCommentVNode("v-if", true),
             vue.createVNode($setup["CustomTabBar"])
           ],
           6
@@ -7149,7 +7406,6 @@ if (uni.restoreGlobal) {
       const transactions = vue.ref([]);
       const loading = vue.ref(false);
       let requestId = 0;
-      const weekdayLabels = ["日", "一", "二", "三", "四", "五", "六"];
       const categoryMap = vue.computed(() => buildCategoryMap(categories.value));
       const transactionGroups = vue.computed(() => {
         const groups = /* @__PURE__ */ new Map();
@@ -7208,12 +7464,6 @@ if (uni.restoreGlobal) {
           return value2;
         }
       }
-      function formatDayLabel(dateString) {
-        const year = Number(dateString.slice(0, 4));
-        const month = Number(dateString.slice(5, 7)) - 1;
-        const day = Number(dateString.slice(8, 10));
-        return `${month + 1}月${day}日 星期${weekdayLabels[new Date(year, month, day).getDay()]}`;
-      }
       function resolveCategoryName(item) {
         const cat = resolveCategory(item, categoryMap.value);
         return (cat == null ? void 0 : cat.name) || "分类已停用或删除";
@@ -7250,7 +7500,7 @@ if (uni.restoreGlobal) {
         return requestId;
       }, set requestId(v2) {
         requestId = v2;
-      }, weekdayLabels, categoryMap, transactionGroups, load, safeDecode, formatDayLabel, resolveCategoryName, getCategoryIcon, getCategoryImage, goEdit, remove: remove2, computed: vue.computed, ref: vue.ref, get onLoad() {
+      }, categoryMap, transactionGroups, load, safeDecode, resolveCategoryName, getCategoryIcon, getCategoryImage, goEdit, remove: remove2, computed: vue.computed, ref: vue.ref, get onLoad() {
         return onLoad;
       }, get onShow() {
         return onShow;
@@ -7258,6 +7508,8 @@ if (uni.restoreGlobal) {
         return appApi;
       }, get formatAmount() {
         return formatAmount;
+      }, get formatDayLabel() {
+        return formatDayLabel;
       }, get showRequestError() {
         return showRequestError;
       }, get buildCategoryMap() {
@@ -7266,151 +7518,162 @@ if (uni.restoreGlobal) {
         return categoryIcon;
       }, get resolveCategory() {
         return resolveCategory;
+      }, get themeStore() {
+        return themeStore;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$2f(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
-      !$setup.valid ? (vue.openBlock(), vue.createElementBlock("view", {
-        key: 0,
-        class: "empty"
-      }, "页面参数无效")) : (vue.openBlock(), vue.createElementBlock(
-        vue.Fragment,
-        { key: 1 },
-        [
-          vue.createElementVNode("view", { class: "range-card" }, [
-            vue.createElementVNode("text", { class: "range-label" }, "统计区间"),
-            vue.createElementVNode(
-              "text",
-              { class: "range-value" },
-              vue.toDisplayString($setup.startDate) + " 至 " + vue.toDisplayString($setup.endDate),
-              1
-              /* TEXT */
-            )
-          ]),
-          vue.createElementVNode("view", { class: "list-title" }, [
-            vue.createTextVNode(
-              vue.toDisplayString($setup.categoryName) + "流水 ",
-              1
-              /* TEXT */
-            ),
-            vue.createElementVNode(
-              "text",
-              { class: "muted" },
-              vue.toDisplayString($setup.transactions.length) + " 笔",
-              1
-              /* TEXT */
-            )
-          ]),
-          $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
-            key: 0,
-            class: "empty"
-          }, "加载中…")) : !$setup.transactions.length ? (vue.openBlock(), vue.createElementBlock("view", {
-            key: 1,
-            class: "empty"
-          }, "该分类在此时间段暂无流水")) : (vue.openBlock(), vue.createElementBlock("view", {
-            key: 2,
-            class: "day-groups"
-          }, [
-            (vue.openBlock(true), vue.createElementBlock(
-              vue.Fragment,
-              null,
-              vue.renderList($setup.transactionGroups, (group) => {
-                return vue.openBlock(), vue.createElementBlock("view", {
-                  key: group.date,
-                  class: "day-group"
-                }, [
-                  vue.createElementVNode("view", { class: "day-header" }, [
-                    vue.createElementVNode(
-                      "text",
-                      { class: "day-label" },
-                      vue.toDisplayString(group.label),
-                      1
-                      /* TEXT */
-                    ),
-                    vue.createElementVNode(
-                      "text",
-                      { class: "day-date" },
-                      vue.toDisplayString(group.date),
-                      1
-                      /* TEXT */
-                    )
-                  ]),
-                  vue.createElementVNode("view", { class: "transaction-list" }, [
-                    (vue.openBlock(true), vue.createElementBlock(
-                      vue.Fragment,
-                      null,
-                      vue.renderList(group.items, (item) => {
-                        return vue.openBlock(), vue.createElementBlock("view", {
-                          key: item.id,
-                          class: "transaction-item",
-                          onClick: ($event) => $setup.goEdit(item)
-                        }, [
-                          vue.createElementVNode("view", { class: "icon category-icon-bg" }, [
-                            vue.createElementVNode(
-                              "text",
-                              { class: "icon-emoji" },
-                              vue.toDisplayString($setup.getCategoryIcon(item)),
-                              1
-                              /* TEXT */
-                            ),
-                            $setup.getCategoryImage(item) ? (vue.openBlock(), vue.createElementBlock("image", {
-                              key: 0,
-                              class: "icon-image",
-                              src: $setup.getCategoryImage(item),
-                              mode: "aspectFill"
-                            }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
-                          ]),
-                          vue.createElementVNode("view", { class: "item-main" }, [
-                            vue.createElementVNode(
-                              "text",
-                              { class: "item-name" },
-                              vue.toDisplayString($setup.resolveCategoryName(item)),
-                              1
-                              /* TEXT */
-                            ),
-                            vue.createElementVNode(
-                              "text",
-                              { class: "item-note" },
-                              vue.toDisplayString(item.note || "暂无备注"),
-                              1
-                              /* TEXT */
-                            )
-                          ]),
-                          vue.createElementVNode("view", { class: "item-right" }, [
-                            vue.createElementVNode(
-                              "text",
-                              {
-                                class: vue.normalizeClass(item.transactionType === "INCOME" ? "income" : "expense")
-                              },
-                              vue.toDisplayString(item.transactionType === "INCOME" ? "+" : "-") + vue.toDisplayString($setup.formatAmount(item.amount)),
-                              3
-                              /* TEXT, CLASS */
-                            )
-                          ]),
-                          vue.createElementVNode("text", {
-                            class: "delete",
-                            onClick: vue.withModifiers(($event) => $setup.remove(item), ["stop"])
-                          }, "删除", 8, ["onClick"])
-                        ], 8, ["onClick"]);
-                      }),
-                      128
-                      /* KEYED_FRAGMENT */
-                    ))
-                  ])
-                ]);
-              }),
-              128
-              /* KEYED_FRAGMENT */
-            ))
-          ]))
-        ],
-        64
-        /* STABLE_FRAGMENT */
-      ))
-    ]);
+    return vue.openBlock(), vue.createElementBlock(
+      "view",
+      {
+        class: vue.normalizeClass(["page", `theme-${$setup.themeStore.id}`]),
+        style: vue.normalizeStyle($setup.themeStore.pageStyle)
+      },
+      [
+        !$setup.valid ? (vue.openBlock(), vue.createElementBlock("view", {
+          key: 0,
+          class: "empty"
+        }, "页面参数无效")) : (vue.openBlock(), vue.createElementBlock(
+          vue.Fragment,
+          { key: 1 },
+          [
+            vue.createElementVNode("view", { class: "range-card" }, [
+              vue.createElementVNode("text", { class: "range-label" }, "统计区间"),
+              vue.createElementVNode(
+                "text",
+                { class: "range-value" },
+                vue.toDisplayString($setup.startDate) + " 至 " + vue.toDisplayString($setup.endDate),
+                1
+                /* TEXT */
+              )
+            ]),
+            vue.createElementVNode("view", { class: "list-title" }, [
+              vue.createTextVNode(
+                vue.toDisplayString($setup.categoryName) + "流水 ",
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode(
+                "text",
+                { class: "muted" },
+                vue.toDisplayString($setup.transactions.length) + " 笔",
+                1
+                /* TEXT */
+              )
+            ]),
+            $setup.loading ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "empty"
+            }, "加载中…")) : !$setup.transactions.length ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 1,
+              class: "empty"
+            }, "该分类在此时间段暂无流水")) : (vue.openBlock(), vue.createElementBlock("view", {
+              key: 2,
+              class: "day-groups"
+            }, [
+              (vue.openBlock(true), vue.createElementBlock(
+                vue.Fragment,
+                null,
+                vue.renderList($setup.transactionGroups, (group) => {
+                  return vue.openBlock(), vue.createElementBlock("view", {
+                    key: group.date,
+                    class: "day-group"
+                  }, [
+                    vue.createElementVNode("view", { class: "day-header" }, [
+                      vue.createElementVNode(
+                        "text",
+                        { class: "day-label" },
+                        vue.toDisplayString(group.label),
+                        1
+                        /* TEXT */
+                      ),
+                      vue.createElementVNode(
+                        "text",
+                        { class: "day-date" },
+                        vue.toDisplayString(group.date),
+                        1
+                        /* TEXT */
+                      )
+                    ]),
+                    vue.createElementVNode("view", { class: "transaction-list" }, [
+                      (vue.openBlock(true), vue.createElementBlock(
+                        vue.Fragment,
+                        null,
+                        vue.renderList(group.items, (item) => {
+                          return vue.openBlock(), vue.createElementBlock("view", {
+                            key: item.id,
+                            class: "transaction-item",
+                            onClick: ($event) => $setup.goEdit(item)
+                          }, [
+                            vue.createElementVNode("view", { class: "icon category-icon-bg" }, [
+                              vue.createElementVNode(
+                                "text",
+                                { class: "icon-emoji" },
+                                vue.toDisplayString($setup.getCategoryIcon(item)),
+                                1
+                                /* TEXT */
+                              ),
+                              $setup.getCategoryImage(item) ? (vue.openBlock(), vue.createElementBlock("image", {
+                                key: 0,
+                                class: "icon-image",
+                                src: $setup.getCategoryImage(item),
+                                mode: "aspectFill"
+                              }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
+                            ]),
+                            vue.createElementVNode("view", { class: "item-main" }, [
+                              vue.createElementVNode(
+                                "text",
+                                { class: "item-name" },
+                                vue.toDisplayString($setup.resolveCategoryName(item)),
+                                1
+                                /* TEXT */
+                              ),
+                              vue.createElementVNode(
+                                "text",
+                                { class: "item-note" },
+                                vue.toDisplayString(item.note || "暂无备注"),
+                                1
+                                /* TEXT */
+                              )
+                            ]),
+                            vue.createElementVNode("view", { class: "item-right" }, [
+                              vue.createElementVNode(
+                                "text",
+                                {
+                                  class: vue.normalizeClass(item.transactionType === "INCOME" ? "income" : "expense")
+                                },
+                                vue.toDisplayString(item.transactionType === "INCOME" ? "+" : "-") + vue.toDisplayString($setup.formatAmount(item.amount)),
+                                3
+                                /* TEXT, CLASS */
+                              )
+                            ]),
+                            vue.createElementVNode("text", {
+                              class: "delete",
+                              onClick: vue.withModifiers(($event) => $setup.remove(item), ["stop"])
+                            }, "删除", 8, ["onClick"])
+                          ], 8, ["onClick"]);
+                        }),
+                        128
+                        /* KEYED_FRAGMENT */
+                      ))
+                    ])
+                  ]);
+                }),
+                128
+                /* KEYED_FRAGMENT */
+              ))
+            ]))
+          ],
+          64
+          /* STABLE_FRAGMENT */
+        ))
+      ],
+      6
+      /* CLASS, STYLE */
+    );
   }
   const PagesLedgerCategoryTransactions = /* @__PURE__ */ _export_sfc(_sfc_main$2g, [["render", _sfc_render$2f], ["__scopeId", "data-v-0237c60a"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/category-transactions.vue"]]);
   const CATEGORY_PAGE_SIZE = 12;
@@ -7418,6 +7681,11 @@ if (uni.restoreGlobal) {
     __name: "transaction-form",
     setup(__props, { expose: __expose }) {
       __expose();
+      const mascots = vue.computed(() => themeStore.currentTheme.mascots || null);
+      const headerCat = vue.computed(() => {
+        var _a2;
+        return ((_a2 = mascots.value) == null ? void 0 : _a2.smile) || themeStore.currentTheme.mascot || "";
+      });
       const categories = vue.ref([]);
       const currentCategoryPage = vue.ref(0);
       const failedImageKeys = vue.ref(/* @__PURE__ */ new Set());
@@ -7428,7 +7696,7 @@ if (uni.restoreGlobal) {
       const calendarMonth = vue.ref((/* @__PURE__ */ new Date()).getMonth());
       const amountExpression = vue.ref("");
       const keyboardHeight = vue.ref(0);
-      let keyboardListener = null;
+      let keyboardHandler = null;
       const weekdays = ["一", "二", "三", "四", "五", "六", "日"];
       const form = vue.reactive({ categoryId: null, categorySource: null, transactionType: "EXPENSE", amount: "", occurredOn: formatDate(/* @__PURE__ */ new Date()), note: "" });
       const keypadKeys = [
@@ -7449,7 +7717,7 @@ if (uni.restoreGlobal) {
         { label: "⌫", action: "delete", className: "utility-key" },
         { label: "完成", action: "submit", className: "submit-key" }
       ];
-      const filteredCategories = vue.computed(() => categories.value.filter((item) => item.transactionType === form.transactionType && (item.source !== "SYSTEM" || item.status === "ACTIVE")).map((item) => ({ ...item, label: `${item.name}${item.source === "SYSTEM" ? "（系统）" : "（自定义）"}` })));
+      const filteredCategories = vue.computed(() => categories.value.filter((item) => item.transactionType === form.transactionType && (item.source !== "SYSTEM" || item.status === "ACTIVE")));
       const categoryPages = vue.computed(() => Array.from(
         { length: Math.ceil(filteredCategories.value.length / CATEGORY_PAGE_SIZE) },
         (_2, index2) => filteredCategories.value.slice(index2 * CATEGORY_PAGE_SIZE, (index2 + 1) * CATEGORY_PAGE_SIZE)
@@ -7461,13 +7729,18 @@ if (uni.restoreGlobal) {
         return [...Array.from({ length: firstWeekday }, () => ({})), ...Array.from({ length: daysInMonth }, (_2, index2) => ({ day: index2 + 1 }))];
       });
       onLoad(load);
-      if (typeof uni.onKeyboardHeightChange === "function")
-        keyboardListener = uni.onKeyboardHeightChange(({ height }) => {
+      if (typeof uni.onKeyboardHeightChange === "function") {
+        keyboardHandler = ({ height }) => {
           keyboardHeight.value = height;
-        });
+        };
+        uni.onKeyboardHeightChange(keyboardHandler);
+      }
+      onShow(() => {
+        keyboardHeight.value = 0;
+      });
       onUnload(() => {
-        if (keyboardListener == null ? void 0 : keyboardListener.off)
-          keyboardListener.off();
+        if (keyboardHandler && typeof uni.offKeyboardHeightChange === "function")
+          uni.offKeyboardHeightChange(keyboardHandler);
       });
       function goBack() {
         uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: "/pages/ledger/index" }) });
@@ -7570,11 +7843,11 @@ if (uni.restoreGlobal) {
           return submit();
         appendNumber(action);
       }
-      function dateParts(value2) {
+      function dateParts2(value2) {
         return { year: Number(value2.slice(0, 4)), month: Number(value2.slice(5, 7)) - 1, day: Number(value2.slice(8, 10)) };
       }
       function openCalendar() {
-        const date3 = dateParts(form.occurredOn);
+        const date3 = dateParts2(form.occurredOn);
         calendarYear.value = date3.year;
         calendarMonth.value = date3.month;
         calendarVisible.value = true;
@@ -7632,12 +7905,14 @@ if (uni.restoreGlobal) {
           submitting.value = false;
         }
       }
-      const __returned__ = { CATEGORY_PAGE_SIZE, categories, currentCategoryPage, failedImageKeys, editingId, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, keyboardHeight, get keyboardListener() {
-        return keyboardListener;
-      }, set keyboardListener(v2) {
-        keyboardListener = v2;
-      }, weekdays, form, keypadKeys, filteredCategories, categoryPages, displayAmount, calendarCells, goBack, dismissKeyboard, load, selectType, onCategoryPageChange, selectCategory, isSelectedCategory, categoryKey, shouldShowImage, markImageLoadFailed, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
+      const __returned__ = { CATEGORY_PAGE_SIZE, mascots, headerCat, categories, currentCategoryPage, failedImageKeys, editingId, submitting, calendarVisible, calendarYear, calendarMonth, amountExpression, keyboardHeight, get keyboardHandler() {
+        return keyboardHandler;
+      }, set keyboardHandler(v2) {
+        keyboardHandler = v2;
+      }, weekdays, form, keypadKeys, filteredCategories, categoryPages, displayAmount, calendarCells, goBack, dismissKeyboard, load, selectType, onCategoryPageChange, selectCategory, isSelectedCategory, categoryKey, shouldShowImage, markImageLoadFailed, evaluateExpression, appendNumber, appendOperator, handleKey, dateParts: dateParts2, openCalendar, closeCalendar, previousMonth, nextMonth, selectDate, isSelectedDate, isToday, submit, computed: vue.computed, reactive: vue.reactive, ref: vue.ref, get onLoad() {
         return onLoad;
+      }, get onShow() {
+        return onShow;
       }, get onUnload() {
         return onUnload;
       }, get appApi() {
@@ -7666,6 +7941,8 @@ if (uni.restoreGlobal) {
         vue.createElementVNode("view", { class: "book-header" }, [
           vue.createElementVNode("view", {
             class: "back-button",
+            "aria-label": "返回",
+            role: "button",
             onClick: $setup.goBack
           }),
           vue.createElementVNode("view", { class: "book-title" }, [
@@ -7679,12 +7956,20 @@ if (uni.restoreGlobal) {
             vue.createElementVNode(
               "text",
               { class: "book-subtitle" },
-              vue.toDisplayString($setup.editingId ? "修改金额、备注或分类" : "记录每一笔收支"),
+              vue.toDisplayString($setup.editingId ? "修改金额、备注或分类" : $setup.mascots ? "记录每一笔收支喵～" : "记录每一笔收支"),
               1
               /* TEXT */
             )
           ]),
-          vue.createElementVNode("view", { class: "book-icon" }, "📋")
+          $setup.headerCat ? (vue.openBlock(), vue.createElementBlock("image", {
+            key: 0,
+            class: "book-icon-image",
+            src: $setup.headerCat,
+            mode: "aspectFit"
+          }, null, 8, ["src"])) : (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "book-icon"
+          }, "📋"))
         ]),
         vue.createElementVNode("view", { class: "type-switch" }, [
           vue.createElementVNode(
@@ -7742,12 +8027,13 @@ if (uni.restoreGlobal) {
                               1
                               /* TEXT */
                             ),
-                            item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
+                            $setup.shouldShowImage(item) ? (vue.openBlock(), vue.createElementBlock("image", {
                               key: 0,
                               class: "category-image",
                               src: item.imageUrl,
-                              mode: "aspectFill"
-                            }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
+                              mode: "aspectFill",
+                              onError: ($event) => $setup.markImageLoadFailed(item)
+                            }, null, 40, ["src", "onError"])) : vue.createCommentVNode("v-if", true)
                           ]),
                           vue.createElementVNode(
                             "text",
@@ -7767,16 +8053,24 @@ if (uni.restoreGlobal) {
               128
               /* KEYED_FRAGMENT */
             ))
-          ], 40, ["current"])) : (vue.openBlock(), vue.createElementBlock(
-            "view",
-            {
-              key: 1,
-              class: "empty-category"
-            },
-            "暂无可用" + vue.toDisplayString($setup.form.transactionType === "EXPENSE" ? "支出" : "收入") + "分类",
-            1
-            /* TEXT */
-          )),
+          ], 40, ["current"])) : (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
+            class: "empty-category"
+          }, [
+            $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+              key: 0,
+              class: "empty-cat",
+              src: $setup.mascots.empty,
+              mode: "aspectFit"
+            }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+            vue.createElementVNode(
+              "text",
+              null,
+              "暂无可用" + vue.toDisplayString($setup.form.transactionType === "EXPENSE" ? "支出" : "收入") + "分类",
+              1
+              /* TEXT */
+            )
+          ])),
           $setup.categoryPages.length > 1 ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 2,
             class: "category-dots"
@@ -7827,7 +8121,7 @@ if (uni.restoreGlobal) {
                 {
                   "onUpdate:modelValue": _cache[3] || (_cache[3] = ($event) => $setup.form.note = $event),
                   class: "note-input",
-                  placeholder: "点击输入备注...",
+                  placeholder: "点击输入备注…",
                   maxlength: "255",
                   "adjust-position": false,
                   onConfirm: $setup.dismissKeyboard
@@ -7866,7 +8160,20 @@ if (uni.restoreGlobal) {
                       key: key.label,
                       class: vue.normalizeClass(["key", key.className, { loading: key.action === "submit" && $setup.submitting }]),
                       onClick: ($event) => $setup.handleKey(key.action)
-                    }, vue.toDisplayString(key.action === "submit" && $setup.submitting ? "保存中" : key.action === "submit" && $setup.editingId ? "保存修改" : key.label), 11, ["onClick"]);
+                    }, [
+                      $setup.mascots && key.action === "date" ? (vue.openBlock(), vue.createElementBlock("image", {
+                        key: 0,
+                        class: "key-paw",
+                        src: $setup.mascots.milk,
+                        mode: "aspectFit"
+                      }, null, 8, ["src"])) : (vue.openBlock(), vue.createElementBlock(
+                        "text",
+                        { key: 1 },
+                        vue.toDisplayString(key.action === "submit" && $setup.submitting ? "保存中" : key.action === "submit" ? $setup.mascots ? "保存喵" : $setup.editingId ? "保存修改" : key.label : key.label),
+                        1
+                        /* TEXT */
+                      ))
+                    ], 10, ["onClick"]);
                   }),
                   64
                   /* STABLE_FRAGMENT */
@@ -7889,7 +8196,15 @@ if (uni.restoreGlobal) {
           vue.createElementVNode("view", { class: "calendar-panel" }, [
             vue.createElementVNode("view", { class: "calendar-handle" }),
             vue.createElementVNode("view", { class: "calendar-topbar" }, [
-              vue.createElementVNode("text", { class: "calendar-title" }, "选择日期"),
+              vue.createElementVNode("view", { class: "calendar-title-wrap" }, [
+                $setup.mascots ? (vue.openBlock(), vue.createElementBlock("image", {
+                  key: 0,
+                  class: "calendar-paw",
+                  src: $setup.mascots.calendar,
+                  mode: "aspectFit"
+                }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                vue.createElementVNode("text", { class: "calendar-title" }, "选择日期")
+              ]),
               vue.createElementVNode(
                 "text",
                 { class: "calendar-current" },
@@ -8051,233 +8366,244 @@ if (uni.restoreGlobal) {
         return appApi;
       }, get showRequestError() {
         return showRequestError;
+      }, get themeStore() {
+        return themeStore;
       } };
       Object.defineProperty(__returned__, "__isScriptSetup", { enumerable: false, value: true });
       return __returned__;
     }
   };
   function _sfc_render$2d(_ctx, _cache, $props, $setup, $data, $options) {
-    return vue.openBlock(), vue.createElementBlock("view", { class: "page" }, [
-      vue.createElementVNode("view", { class: "card form" }, [
-        vue.createElementVNode("text", { class: "form-title" }, "我的自定义分类"),
-        vue.withDirectives(vue.createElementVNode(
-          "input",
-          {
-            "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.name = $event),
-            class: "input",
-            placeholder: "分类名称，如：宠物",
-            maxlength: "32"
-          },
-          null,
-          512
-          /* NEED_PATCH */
-        ), [
-          [
-            vue.vModelText,
-            $setup.form.name,
-            void 0,
-            { trim: true }
-          ]
-        ]),
-        vue.createElementVNode("view", { class: "image-upload-section" }, [
-          vue.createElementVNode("view", { class: "image-upload-heading" }, [
-            vue.createElementVNode("text", { class: "image-upload-title" }, "分类图标"),
-            vue.createElementVNode("text", { class: "image-upload-hint" }, "可选，可从相册选择或拍照")
+    return vue.openBlock(), vue.createElementBlock(
+      "view",
+      {
+        class: vue.normalizeClass(["page", `theme-${$setup.themeStore.id}`]),
+        style: vue.normalizeStyle($setup.themeStore.pageStyle)
+      },
+      [
+        vue.createElementVNode("view", { class: "card form" }, [
+          vue.createElementVNode("text", { class: "form-title" }, "我的自定义分类"),
+          vue.withDirectives(vue.createElementVNode(
+            "input",
+            {
+              "onUpdate:modelValue": _cache[0] || (_cache[0] = ($event) => $setup.form.name = $event),
+              class: "input",
+              placeholder: "分类名称，如：宠物",
+              maxlength: "32"
+            },
+            null,
+            512
+            /* NEED_PATCH */
+          ), [
+            [
+              vue.vModelText,
+              $setup.form.name,
+              void 0,
+              { trim: true }
+            ]
           ]),
-          vue.createElementVNode("view", { class: "image-upload-row" }, [
+          vue.createElementVNode("view", { class: "image-upload-section" }, [
+            vue.createElementVNode("view", { class: "image-upload-heading" }, [
+              vue.createElementVNode("text", { class: "image-upload-title" }, "分类图标"),
+              vue.createElementVNode("text", { class: "image-upload-hint" }, "可选，可从相册选择或拍照")
+            ]),
+            vue.createElementVNode("view", { class: "image-upload-row" }, [
+              vue.createElementVNode("button", {
+                class: "image-upload-button",
+                disabled: $setup.uploading,
+                onClick: $setup.chooseImage
+              }, [
+                vue.createElementVNode("text", { class: "image-upload-icon" }, "＋"),
+                vue.createElementVNode(
+                  "text",
+                  null,
+                  vue.toDisplayString($setup.uploading ? "图片上传中…" : $setup.form.imageUrl ? "更换图片" : "选择图片"),
+                  1
+                  /* TEXT */
+                )
+              ], 8, ["disabled"]),
+              $setup.form.imageUrl ? (vue.openBlock(), vue.createElementBlock("view", {
+                key: 0,
+                class: "image-preview-wrap"
+              }, [
+                vue.createElementVNode("image", {
+                  class: "form-image-preview",
+                  src: $setup.form.imageUrl,
+                  mode: "aspectFill"
+                }, null, 8, ["src"])
+              ])) : (vue.openBlock(), vue.createElementBlock("view", {
+                key: 1,
+                class: "image-placeholder"
+              }, [
+                vue.createElementVNode("text", { class: "image-placeholder-icon" }, "图"),
+                vue.createElementVNode("text", { class: "image-placeholder-text" }, "未选择")
+              ])),
+              $setup.form.imageUrl && !$setup.uploading ? (vue.openBlock(), vue.createElementBlock("text", {
+                key: 2,
+                class: "clear-image",
+                onClick: $setup.clearImage
+              }, "移除")) : vue.createCommentVNode("v-if", true)
+            ])
+          ]),
+          vue.createElementVNode("view", { class: "type-row" }, [
+            vue.createElementVNode(
+              "view",
+              {
+                class: vue.normalizeClass(["pill", $setup.form.transactionType === "EXPENSE" && "selected-expense"]),
+                onClick: _cache[1] || (_cache[1] = ($event) => $setup.form.transactionType = "EXPENSE")
+              },
+              "支出",
+              2
+              /* CLASS */
+            ),
+            vue.createElementVNode(
+              "view",
+              {
+                class: vue.normalizeClass(["pill", $setup.form.transactionType === "INCOME" && "selected-income"]),
+                onClick: _cache[2] || (_cache[2] = ($event) => $setup.form.transactionType = "INCOME")
+              },
+              "收入",
+              2
+              /* CLASS */
+            ),
             vue.createElementVNode("button", {
-              class: "image-upload-button",
+              class: "small-add",
               disabled: $setup.uploading,
-              onClick: $setup.chooseImage
-            }, [
-              vue.createElementVNode("text", { class: "image-upload-icon" }, "＋"),
-              vue.createElementVNode(
-                "text",
-                null,
-                vue.toDisplayString($setup.uploading ? "图片上传中..." : $setup.form.imageUrl ? "更换图片" : "选择图片"),
-                1
-                /* TEXT */
-              )
-            ], 8, ["disabled"]),
-            $setup.form.imageUrl ? (vue.openBlock(), vue.createElementBlock("view", {
-              key: 0,
-              class: "image-preview-wrap"
-            }, [
-              vue.createElementVNode("image", {
-                class: "form-image-preview",
-                src: $setup.form.imageUrl,
-                mode: "aspectFill"
-              }, null, 8, ["src"])
-            ])) : (vue.openBlock(), vue.createElementBlock("view", {
-              key: 1,
-              class: "image-placeholder"
-            }, [
-              vue.createElementVNode("text", { class: "image-placeholder-icon" }, "图"),
-              vue.createElementVNode("text", { class: "image-placeholder-text" }, "未选择")
-            ])),
-            $setup.form.imageUrl && !$setup.uploading ? (vue.openBlock(), vue.createElementBlock("text", {
-              key: 2,
-              class: "clear-image",
-              onClick: $setup.clearImage
-            }, "移除")) : vue.createCommentVNode("v-if", true)
+              onClick: $setup.save
+            }, vue.toDisplayString($setup.editingId ? "更新" : "添加"), 9, ["disabled"])
           ])
         ]),
-        vue.createElementVNode("view", { class: "type-row" }, [
-          vue.createElementVNode(
-            "view",
-            {
-              class: vue.normalizeClass(["pill", $setup.form.transactionType === "EXPENSE" && "selected-expense"]),
-              onClick: _cache[1] || (_cache[1] = ($event) => $setup.form.transactionType = "EXPENSE")
-            },
-            "支出",
-            2
-            /* CLASS */
-          ),
-          vue.createElementVNode(
-            "view",
-            {
-              class: vue.normalizeClass(["pill", $setup.form.transactionType === "INCOME" && "selected-income"]),
-              onClick: _cache[2] || (_cache[2] = ($event) => $setup.form.transactionType = "INCOME")
-            },
-            "收入",
-            2
-            /* CLASS */
-          ),
-          vue.createElementVNode("button", {
-            class: "small-add",
-            disabled: $setup.uploading,
-            onClick: $setup.save
-          }, vue.toDisplayString($setup.editingId ? "更新" : "添加"), 9, ["disabled"])
-        ])
-      ]),
-      (vue.openBlock(), vue.createElementBlock(
-        vue.Fragment,
-        null,
-        vue.renderList(["EXPENSE", "INCOME"], (type2) => {
-          return vue.createElementVNode("view", {
-            key: type2,
-            class: "section"
-          }, [
-            vue.createElementVNode(
-              "text",
-              { class: "section-title" },
-              vue.toDisplayString(type2 === "EXPENSE" ? "系统支出分类（后台维护）" : "系统收入分类（后台维护）"),
-              1
-              /* TEXT */
-            ),
-            vue.createElementVNode("view", { class: "category-card" }, [
-              (vue.openBlock(true), vue.createElementBlock(
-                vue.Fragment,
-                null,
-                vue.renderList($setup.systemByType(type2), (item) => {
-                  return vue.openBlock(), vue.createElementBlock("view", {
-                    key: `system-${item.id}`,
-                    class: "category-item"
-                  }, [
-                    vue.createElementVNode("view", { class: "category-main" }, [
-                      item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
-                        key: 0,
-                        class: "category-thumbnail",
-                        src: item.imageUrl,
-                        mode: "aspectFill"
-                      }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+        (vue.openBlock(), vue.createElementBlock(
+          vue.Fragment,
+          null,
+          vue.renderList(["EXPENSE", "INCOME"], (type2) => {
+            return vue.createElementVNode("view", {
+              key: type2,
+              class: "section"
+            }, [
+              vue.createElementVNode(
+                "text",
+                { class: "section-title" },
+                vue.toDisplayString(type2 === "EXPENSE" ? "系统支出分类（后台维护）" : "系统收入分类（后台维护）"),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("view", { class: "category-card" }, [
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.systemByType(type2), (item) => {
+                    return vue.openBlock(), vue.createElementBlock("view", {
+                      key: `system-${item.id}`,
+                      class: "category-item"
+                    }, [
+                      vue.createElementVNode("view", { class: "category-main" }, [
+                        item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
+                          key: 0,
+                          class: "category-thumbnail",
+                          src: item.imageUrl,
+                          mode: "aspectFill"
+                        }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                        vue.createElementVNode(
+                          "text",
+                          null,
+                          vue.toDisplayString(item.name),
+                          1
+                          /* TEXT */
+                        )
+                      ]),
                       vue.createElementVNode(
                         "text",
-                        null,
-                        vue.toDisplayString(item.name),
-                        1
-                        /* TEXT */
+                        {
+                          class: vue.normalizeClass(item.status === "ACTIVE" ? "readonly" : "disabled")
+                        },
+                        vue.toDisplayString(item.status === "ACTIVE" ? "系统分类" : "已停用"),
+                        3
+                        /* TEXT, CLASS */
                       )
-                    ]),
-                    vue.createElementVNode(
-                      "text",
-                      {
-                        class: vue.normalizeClass(item.status === "ACTIVE" ? "readonly" : "disabled")
-                      },
-                      vue.toDisplayString(item.status === "ACTIVE" ? "系统分类" : "已停用"),
-                      3
-                      /* TEXT, CLASS */
-                    )
-                  ]);
-                }),
-                128
-                /* KEYED_FRAGMENT */
-              )),
-              !$setup.systemByType(type2).length ? (vue.openBlock(), vue.createElementBlock("view", {
-                key: 0,
-                class: "empty small-empty"
-              }, "暂无系统分类")) : vue.createCommentVNode("v-if", true)
-            ])
-          ]);
-        }),
-        64
-        /* STABLE_FRAGMENT */
-      )),
-      (vue.openBlock(), vue.createElementBlock(
-        vue.Fragment,
-        null,
-        vue.renderList(["EXPENSE", "INCOME"], (type2) => {
-          return vue.createElementVNode("view", {
-            key: `custom-${type2}`,
-            class: "section"
-          }, [
-            vue.createElementVNode(
-              "text",
-              { class: "section-title" },
-              vue.toDisplayString(type2 === "EXPENSE" ? "我的支出分类" : "我的收入分类"),
-              1
-              /* TEXT */
-            ),
-            vue.createElementVNode("view", { class: "category-card" }, [
-              (vue.openBlock(true), vue.createElementBlock(
-                vue.Fragment,
-                null,
-                vue.renderList($setup.customByType(type2), (item) => {
-                  return vue.openBlock(), vue.createElementBlock("view", {
-                    key: `custom-${item.id}`,
-                    class: "category-item"
-                  }, [
-                    vue.createElementVNode("view", { class: "category-main" }, [
-                      item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
-                        key: 0,
-                        class: "category-thumbnail",
-                        src: item.imageUrl,
-                        mode: "aspectFill"
-                      }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
-                      vue.createElementVNode(
-                        "text",
-                        null,
-                        vue.toDisplayString(item.name),
-                        1
-                        /* TEXT */
-                      )
-                    ]),
-                    vue.createElementVNode("view", null, [
-                      vue.createElementVNode("text", {
-                        class: "edit",
-                        onClick: ($event) => $setup.edit(item)
-                      }, "编辑", 8, ["onClick"]),
-                      vue.createElementVNode("text", {
-                        class: "delete",
-                        onClick: ($event) => $setup.remove(item)
-                      }, "删除", 8, ["onClick"])
-                    ])
-                  ]);
-                }),
-                128
-                /* KEYED_FRAGMENT */
-              )),
-              !$setup.customByType(type2).length ? (vue.openBlock(), vue.createElementBlock("view", {
-                key: 0,
-                class: "empty small-empty"
-              }, "暂无自定义分类")) : vue.createCommentVNode("v-if", true)
-            ])
-          ]);
-        }),
-        64
-        /* STABLE_FRAGMENT */
-      ))
-    ]);
+                    ]);
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                )),
+                !$setup.systemByType(type2).length ? (vue.openBlock(), vue.createElementBlock("view", {
+                  key: 0,
+                  class: "empty small-empty"
+                }, "暂无系统分类")) : vue.createCommentVNode("v-if", true)
+              ])
+            ]);
+          }),
+          64
+          /* STABLE_FRAGMENT */
+        )),
+        (vue.openBlock(), vue.createElementBlock(
+          vue.Fragment,
+          null,
+          vue.renderList(["EXPENSE", "INCOME"], (type2) => {
+            return vue.createElementVNode("view", {
+              key: `custom-${type2}`,
+              class: "section"
+            }, [
+              vue.createElementVNode(
+                "text",
+                { class: "section-title" },
+                vue.toDisplayString(type2 === "EXPENSE" ? "我的支出分类" : "我的收入分类"),
+                1
+                /* TEXT */
+              ),
+              vue.createElementVNode("view", { class: "category-card" }, [
+                (vue.openBlock(true), vue.createElementBlock(
+                  vue.Fragment,
+                  null,
+                  vue.renderList($setup.customByType(type2), (item) => {
+                    return vue.openBlock(), vue.createElementBlock("view", {
+                      key: `custom-${item.id}`,
+                      class: "category-item"
+                    }, [
+                      vue.createElementVNode("view", { class: "category-main" }, [
+                        item.imageUrl ? (vue.openBlock(), vue.createElementBlock("image", {
+                          key: 0,
+                          class: "category-thumbnail",
+                          src: item.imageUrl,
+                          mode: "aspectFill"
+                        }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
+                        vue.createElementVNode(
+                          "text",
+                          null,
+                          vue.toDisplayString(item.name),
+                          1
+                          /* TEXT */
+                        )
+                      ]),
+                      vue.createElementVNode("view", null, [
+                        vue.createElementVNode("text", {
+                          class: "edit",
+                          onClick: ($event) => $setup.edit(item)
+                        }, "编辑", 8, ["onClick"]),
+                        vue.createElementVNode("text", {
+                          class: "delete",
+                          onClick: ($event) => $setup.remove(item)
+                        }, "删除", 8, ["onClick"])
+                      ])
+                    ]);
+                  }),
+                  128
+                  /* KEYED_FRAGMENT */
+                )),
+                !$setup.customByType(type2).length ? (vue.openBlock(), vue.createElementBlock("view", {
+                  key: 0,
+                  class: "empty small-empty"
+                }, "暂无自定义分类")) : vue.createCommentVNode("v-if", true)
+              ])
+            ]);
+          }),
+          64
+          /* STABLE_FRAGMENT */
+        ))
+      ],
+      6
+      /* CLASS, STYLE */
+    );
   }
   const PagesLedgerCategories = /* @__PURE__ */ _export_sfc(_sfc_main$2e, [["render", _sfc_render$2d], ["__scopeId", "data-v-eb3d6ed0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/ledger/categories.vue"]]);
   const block0$3 = (Comp) => {
@@ -8327,11 +8653,15 @@ if (uni.restoreGlobal) {
       const userAvatarFailed = vue.ref(false);
       const inputFocused = vue.ref(false);
       const keyboardHeight = vue.ref(0);
-      let keyboardListener = null;
+      const historyLoading = vue.ref(true);
+      const autoFollow = vue.ref(true);
+      const messagesViewport = vue.ref(0);
+      let keyboardHandler = null;
       const userAvatar = vue.computed(() => {
         var _a2;
         return ((_a2 = authStore.profile) == null ? void 0 : _a2.avatar) || "";
       });
+      const mascots = vue.computed(() => themeStore.currentTheme.mascots || null);
       const userInitial = vue.computed(() => {
         var _a2;
         return (((_a2 = authStore.profile) == null ? void 0 : _a2.username) || "我").slice(0, 1).toUpperCase();
@@ -8356,19 +8686,38 @@ if (uni.restoreGlobal) {
         ensureSession2();
         await Promise.all([loadConversations(), loadHistory()]);
       });
-      if (typeof uni.onKeyboardHeightChange === "function")
-        keyboardListener = uni.onKeyboardHeightChange(({ height }) => {
+      if (typeof uni.onKeyboardHeightChange === "function") {
+        keyboardHandler = ({ height }) => {
           keyboardHeight.value = height;
           if (height > 0) {
             if (inputFocused.value)
               scrollBottom();
           } else
             inputFocused.value = false;
-        });
+          vue.nextTick(measureMessagesViewport);
+        };
+        uni.onKeyboardHeightChange(keyboardHandler);
+      }
       onUnload(() => {
-        if (keyboardListener == null ? void 0 : keyboardListener.off)
-          keyboardListener.off();
+        if (keyboardHandler && typeof uni.offKeyboardHeightChange === "function")
+          uni.offKeyboardHeightChange(keyboardHandler);
+        abortAppStream();
       });
+      function onMessagesScroll(e2) {
+        if (!messagesViewport.value)
+          return;
+        autoFollow.value = e2.detail.scrollHeight - e2.detail.scrollTop - messagesViewport.value < 120;
+      }
+      function measureMessagesViewport() {
+        uni.createSelectorQuery().select(".messages").boundingClientRect((rect) => {
+          if (rect == null ? void 0 : rect.height)
+            messagesViewport.value = rect.height;
+        }).exec();
+      }
+      function followStream() {
+        if (autoFollow.value)
+          scrollBottom();
+      }
       function onInputFocus() {
         inputFocused.value = true;
         scrollBottom();
@@ -8399,11 +8748,14 @@ if (uni.restoreGlobal) {
         }
       }
       async function loadHistory() {
+        historyLoading.value = true;
         try {
           messages2.value = await appApi.chatHistory(sessionId.value);
           scrollBottom();
         } catch (error2) {
           showRequestError(error2);
+        } finally {
+          historyLoading.value = false;
         }
       }
       async function openConversationList() {
@@ -8451,7 +8803,8 @@ if (uni.restoreGlobal) {
         } catch (error2) {
           if (!assistantMessage.content)
             messages2.value.pop();
-          showRequestError(error2);
+          if ((error2 == null ? void 0 : error2.message) !== "ABORTED")
+            showRequestError(error2);
         } finally {
           assistantMessage.streaming = false;
           sending.value = false;
@@ -8501,7 +8854,7 @@ if (uni.restoreGlobal) {
         if (!active || active.finished || !token)
           return;
         active.assistantMessage.content += token;
-        scrollBottom();
+        followStream();
       }
       function onStreamDone() {
         const active = activeSse;
@@ -8517,11 +8870,19 @@ if (uni.restoreGlobal) {
         active.finished = true;
         active.reject(new Error(message || "对话请求失败"));
       }
-      const __returned__ = { SESSION_KEY, messages: messages2, input, sending, bottomId, sessionId, conversations, conversationListVisible, userAvatarFailed, inputFocused, keyboardHeight, get keyboardListener() {
-        return keyboardListener;
-      }, set keyboardListener(v2) {
-        keyboardListener = v2;
-      }, userAvatar, userInitial, activeConversationTitle, windowWidth: windowWidth2, windowHeight, safeAreaInsets, fallbackTabBarPx, composerPx, appChatStyle, onInputFocus, onInputBlur, dismissKeyboard, isUserMessage, createSessionId, ensureSession: ensureSession2, loadConversations, loadHistory, openConversationList, closeConversationList, newConversation, selectConversation, send, formatConversationTime, scrollBottom, sseRequestJson, get sseSequence() {
+      function abortAppStream() {
+        if (!activeSse || activeSse.finished)
+          return;
+        activeSse.finished = true;
+        activeSse.reject(new Error("ABORTED"));
+        sseSequence += 1;
+        sseRequestJson.value = JSON.stringify({ id: -sseSequence, abort: true });
+      }
+      const __returned__ = { SESSION_KEY, messages: messages2, input, sending, bottomId, sessionId, conversations, conversationListVisible, userAvatarFailed, inputFocused, keyboardHeight, historyLoading, autoFollow, messagesViewport, get keyboardHandler() {
+        return keyboardHandler;
+      }, set keyboardHandler(v2) {
+        keyboardHandler = v2;
+      }, userAvatar, mascots, userInitial, activeConversationTitle, windowWidth: windowWidth2, windowHeight, safeAreaInsets, fallbackTabBarPx, composerPx, appChatStyle, onMessagesScroll, measureMessagesViewport, followStream, onInputFocus, onInputBlur, dismissKeyboard, isUserMessage, createSessionId, ensureSession: ensureSession2, loadConversations, loadHistory, openConversationList, closeConversationList, newConversation, selectConversation, send, formatConversationTime, scrollBottom, sseRequestJson, get sseSequence() {
         return sseSequence;
       }, set sseSequence(v2) {
         sseSequence = v2;
@@ -8529,7 +8890,7 @@ if (uni.restoreGlobal) {
         return activeSse;
       }, set activeSse(v2) {
         activeSse = v2;
-      }, sendViaAppStream, onStreamToken, onStreamDone, onStreamError, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
+      }, sendViaAppStream, onStreamToken, onStreamDone, onStreamError, abortAppStream, computed: vue.computed, nextTick: vue.nextTick, ref: vue.ref, get onShow() {
         return onShow;
       }, get onUnload() {
         return onUnload;
@@ -8579,31 +8940,75 @@ if (uni.restoreGlobal) {
               onClick: $setup.newConversation
             }, "新对话", 8, ["disabled"]),
             vue.createElementVNode("button", {
-              class: "new-conversation",
-              style: { "width": "62rpx", "padding": "0" },
+              class: "new-conversation history-trigger",
               disabled: $setup.sending,
               "aria-label": "历史对话",
               onClick: $setup.openConversationList
-            }, "🕘", 8, ["disabled"])
+            }, [
+              vue.createElementVNode("view", { class: "clock-icon" })
+            ], 8, ["disabled"])
           ])
         ]),
         vue.createElementVNode("scroll-view", {
           class: "messages",
           "scroll-y": "",
-          "scroll-into-view": $setup.bottomId
+          "scroll-into-view": $setup.bottomId,
+          onScroll: $setup.onMessagesScroll
         }, [
-          !$setup.messages.length ? (vue.openBlock(), vue.createElementBlock("view", {
+          $setup.historyLoading ? (vue.openBlock(), vue.createElementBlock("view", {
             key: 0,
+            class: "history-loading"
+          }, [
+            vue.createElementVNode("text", null, "加载中…")
+          ])) : !$setup.messages.length ? (vue.openBlock(), vue.createElementBlock("view", {
+            key: 1,
             class: "welcome"
           }, [
-            vue.createElementVNode("view", { class: "welcome-avatar" }, "AI"),
-            vue.createElementVNode("text", { class: "welcome-title" }, "你好，我是记账助手"),
-            vue.createElementVNode("text", { class: "welcome-description" }, "可以问我记账建议，或聊聊你的收支规划。")
+            vue.createElementVNode("view", { class: "welcome-avatar" }, [
+              $setup.themeStore.currentTheme.mascot ? (vue.openBlock(), vue.createElementBlock("image", {
+                key: 0,
+                class: "avatar-mascot",
+                src: $setup.themeStore.currentTheme.mascot,
+                mode: "aspectFit"
+              }, null, 8, ["src"])) : (vue.openBlock(), vue.createElementBlock("text", { key: 1 }, "AI"))
+            ]),
+            vue.createElementVNode(
+              "text",
+              { class: "welcome-title" },
+              vue.toDisplayString($setup.mascots ? "你好，我是喵记账助手" : "你好，我是记账助手"),
+              1
+              /* TEXT */
+            ),
+            vue.createElementVNode(
+              "text",
+              { class: "welcome-description" },
+              vue.toDisplayString($setup.mascots ? "可以问我记账建议，或聊聊你的收支规划喵～" : "可以问我记账建议，或聊聊你的收支规划。"),
+              1
+              /* TEXT */
+            ),
+            $setup.mascots ? (vue.openBlock(), vue.createElementBlock("view", {
+              key: 0,
+              class: "welcome-paws"
+            }, [
+              vue.createElementVNode("image", {
+                src: $setup.mascots.strawberry,
+                mode: "aspectFit"
+              }, null, 8, ["src"]),
+              vue.createElementVNode("image", {
+                src: $setup.mascots.rice,
+                mode: "aspectFit"
+              }, null, 8, ["src"]),
+              vue.createElementVNode("image", {
+                src: $setup.mascots.peach,
+                mode: "aspectFit"
+              }, null, 8, ["src"])
+            ])) : vue.createCommentVNode("v-if", true)
           ])) : vue.createCommentVNode("v-if", true),
           (vue.openBlock(true), vue.createElementBlock(
             vue.Fragment,
             null,
             vue.renderList($setup.messages, (item, index2) => {
+              var _a2;
               return vue.openBlock(), vue.createElementBlock("view", {
                 id: `message-${index2}`,
                 key: `${item.id || index2}-${item.createdAt || ""}`,
@@ -8612,7 +9017,14 @@ if (uni.restoreGlobal) {
                 !$setup.isUserMessage(item) ? (vue.openBlock(), vue.createElementBlock("view", {
                   key: 0,
                   class: "message-avatar assistant-avatar"
-                }, "AI")) : vue.createCommentVNode("v-if", true),
+                }, [
+                  $setup.mascots || $setup.themeStore.currentTheme.mascot ? (vue.openBlock(), vue.createElementBlock("image", {
+                    key: 0,
+                    class: "avatar-mascot",
+                    src: ((_a2 = $setup.mascots) == null ? void 0 : _a2.chat) || $setup.themeStore.currentTheme.mascot,
+                    mode: "aspectFit"
+                  }, null, 8, ["src"])) : (vue.openBlock(), vue.createElementBlock("text", { key: 1 }, "AI"))
+                ])) : vue.createCommentVNode("v-if", true),
                 vue.createElementVNode("view", { class: "message-content" }, [
                   vue.createElementVNode(
                     "view",
@@ -8658,7 +9070,7 @@ if (uni.restoreGlobal) {
             /* KEYED_FRAGMENT */
           )),
           vue.createElementVNode("view", { id: "chat-bottom" })
-        ], 8, ["scroll-into-view"]),
+        ], 40, ["scroll-into-view"]),
         $setup.inputFocused && $setup.keyboardHeight > 0 ? (vue.openBlock(), vue.createElementBlock(
           "view",
           {
@@ -8680,23 +9092,17 @@ if (uni.restoreGlobal) {
           },
           [
             vue.createElementVNode("view", { class: "composer-field" }, [
-              vue.withDirectives(vue.createElementVNode(
-                "input",
-                {
-                  "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.input = $event),
-                  class: "composer-input",
-                  maxlength: "1000",
-                  "confirm-type": "send",
-                  placeholder: "输入消息，向助手提问…",
-                  "adjust-position": false,
-                  onFocus: $setup.onInputFocus,
-                  onBlur: $setup.onInputBlur,
-                  onConfirm: $setup.send
-                },
-                null,
-                544
-                /* NEED_HYDRATION, NEED_PATCH */
-              ), [
+              vue.withDirectives(vue.createElementVNode("input", {
+                "onUpdate:modelValue": _cache[2] || (_cache[2] = ($event) => $setup.input = $event),
+                class: "composer-input",
+                maxlength: "1000",
+                "confirm-type": "send",
+                placeholder: $setup.mascots ? "向喵助手提问…" : "输入消息，向助手提问…",
+                "adjust-position": false,
+                onFocus: $setup.onInputFocus,
+                onBlur: $setup.onInputBlur,
+                onConfirm: $setup.send
+              }, null, 40, ["placeholder"]), [
                 [vue.vModelText, $setup.input]
               ]),
               $setup.input.length ? (vue.openBlock(), vue.createElementBlock(
@@ -8715,7 +9121,7 @@ if (uni.restoreGlobal) {
               disabled: !$setup.input.trim() || $setup.sending,
               loading: $setup.sending,
               onClick: $setup.send
-            }, "发送", 10, ["disabled", "loading"])
+            }, vue.toDisplayString($setup.mascots ? "发送喵" : "发送"), 11, ["disabled", "loading"])
           ],
           6
           /* CLASS, STYLE */
@@ -8746,10 +9152,16 @@ if (uni.restoreGlobal) {
               class: "conversation-list",
               "scroll-y": ""
             }, [
-              !$setup.conversations.length ? (vue.openBlock(), vue.createElementBlock("view", {
-                key: 0,
-                class: "conversation-empty"
-              }, "还没有历史对话，发送第一条消息后会显示在这里。")) : vue.createCommentVNode("v-if", true),
+              !$setup.conversations.length ? (vue.openBlock(), vue.createElementBlock(
+                "view",
+                {
+                  key: 0,
+                  class: "conversation-empty"
+                },
+                vue.toDisplayString($setup.mascots ? "还没有历史对话，先和喵助手聊两句吧～" : "还没有历史对话，发送第一条消息后会显示在这里。"),
+                1
+                /* TEXT */
+              )) : vue.createCommentVNode("v-if", true),
               (vue.openBlock(true), vue.createElementBlock(
                 vue.Fragment,
                 null,
@@ -8800,6 +9212,7 @@ if (uni.restoreGlobal) {
     );
   }
   const PagesChatIndex = /* @__PURE__ */ _export_sfc(_sfc_main$2c, [["render", _sfc_render$2b], ["__scopeId", "data-v-da04a0a0"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/chat/index.vue"]]);
+  const CROP_WINDOW_RATIO = 0.76;
   const _sfc_main$2b = {
     __name: "index",
     setup(__props, { expose: __expose }) {
@@ -8886,7 +9299,7 @@ if (uni.restoreGlobal) {
           cropSource.value = filePath;
           sourceWidth.value = info.width;
           sourceHeight.value = info.height;
-          cropSize.value = Math.round(uni.getSystemInfoSync().windowWidth * 0.76);
+          cropSize.value = Math.round(uni.getWindowInfo().windowWidth * CROP_WINDOW_RATIO);
           baseScale.value = Math.max(cropSize.value / info.width, cropSize.value / info.height);
           zoom.value = 1;
           offsetX.value = 0;
@@ -8984,7 +9397,7 @@ if (uni.restoreGlobal) {
           }
         } });
       }
-      const __returned__ = { avatar, savedAvatar, uploading, saving, previewFailed, avatarDialogVisible, cropping, cropSource, cropSize, sourceWidth, sourceHeight, baseScale, zoom, offsetX, offsetY, dragStart, activityStats, initial, hasChanges, profileHeadStyle, imageWidth, imageHeight, imageLeft, imageTop, cropWindowStyle, cropImageStyle, load, goThemeSettings, goProfileInfo, openAvatarDialog, closeAvatarDialog, goCategories, goImportExport, chooseImage, getImageInfo, startAvatarChange, constrainOffset, startDrag, moveDrag, changeZoom, canvasToTempFile, confirmCrop, cancelCrop, save, logout, computed: vue.computed, ref: vue.ref, get onShow() {
+      const __returned__ = { avatar, savedAvatar, uploading, saving, previewFailed, avatarDialogVisible, cropping, cropSource, cropSize, sourceWidth, sourceHeight, baseScale, zoom, offsetX, offsetY, dragStart, activityStats, CROP_WINDOW_RATIO, initial, hasChanges, profileHeadStyle, imageWidth, imageHeight, imageLeft, imageTop, cropWindowStyle, cropImageStyle, load, goThemeSettings, goProfileInfo, openAvatarDialog, closeAvatarDialog, goCategories, goImportExport, chooseImage, getImageInfo, startAvatarChange, constrainOffset, startDrag, moveDrag, changeZoom, canvasToTempFile, confirmCrop, cancelCrop, save, logout, computed: vue.computed, ref: vue.ref, get onShow() {
         return onShow;
       }, get appApi() {
         return appApi;
@@ -9037,7 +9450,7 @@ if (uni.restoreGlobal) {
               )),
               vue.createElementVNode("view", { class: "avatar-badge" }, "编辑")
             ]),
-            vue.createElementVNode("view", null, [
+            vue.createElementVNode("view", { class: "user-meta" }, [
               vue.createElementVNode(
                 "text",
                 { class: "username" },
@@ -9287,7 +9700,7 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
-        class: "theme-page",
+        class: vue.normalizeClass(["theme-page", `theme-${$setup.themeStore.id}`]),
         style: vue.normalizeStyle($setup.themeStore.cssVariables)
       },
       [
@@ -9306,7 +9719,13 @@ if (uni.restoreGlobal) {
               1
               /* TEXT */
             )
-          ])
+          ]),
+          $setup.themeStore.currentTheme.mascot ? (vue.openBlock(), vue.createElementBlock("image", {
+            key: 0,
+            class: "current-theme-mascot",
+            src: $setup.themeStore.currentTheme.mascot,
+            mode: "aspectFit"
+          }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true)
         ]),
         vue.createElementVNode("view", { class: "theme-grid" }, [
           (vue.openBlock(true), vue.createElementBlock(
@@ -9325,6 +9744,12 @@ if (uni.restoreGlobal) {
                     style: vue.normalizeStyle({ background: theme.colors.pageBackground })
                   },
                   [
+                    theme.mascot ? (vue.openBlock(), vue.createElementBlock("image", {
+                      key: 0,
+                      class: "preview-mascot",
+                      src: theme.mascot,
+                      mode: "aspectFit"
+                    }, null, 8, ["src"])) : vue.createCommentVNode("v-if", true),
                     vue.createElementVNode(
                       "view",
                       {
@@ -9442,8 +9867,8 @@ if (uni.restoreGlobal) {
           ))
         ])
       ],
-      4
-      /* STYLE */
+      6
+      /* CLASS, STYLE */
     );
   }
   const PagesProfileThemeSettings = /* @__PURE__ */ _export_sfc(_sfc_main$2a, [["render", _sfc_render$29], ["__scopeId", "data-v-3fed1323"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/theme-settings.vue"]]);
@@ -9678,23 +10103,8 @@ if (uni.restoreGlobal) {
       async function handleImport() {
         if (importing.value)
           return;
-        try {
-          const filePath = await chooseExcelFile();
-          if (!filePath)
-            return;
-          importing.value = true;
-          importResult.value = await appApi.importTransactions(filePath);
-          if (importResult.value.failedCount > 0) {
-            uni.showToast({ title: "部分数据导入失败，请查看结果", icon: "none" });
-          } else {
-            uni.showToast({ title: `成功导入 ${importResult.value.importedCount} 条流水`, icon: "success" });
-          }
-        } catch (error2) {
-          if (!String((error2 == null ? void 0 : error2.message) || "").includes("未选择文件"))
-            showRequestError(error2);
-        } finally {
-          importing.value = false;
-        }
+        uni.showModal({ title: "暂不支持导入", content: "App 端暂不支持选择文件导入，请使用 H5 网页版操作", showCancel: false });
+        return;
       }
       const __returned__ = { exporting, importing, importResult, chooseExcelFile, handleExport, handleImport, ref: vue.ref, get appApi() {
         return appApi;
@@ -9711,7 +10121,7 @@ if (uni.restoreGlobal) {
     return vue.openBlock(), vue.createElementBlock(
       "view",
       {
-        class: "transfer-page",
+        class: vue.normalizeClass(["transfer-page", `theme-${$setup.themeStore.id}`]),
         style: vue.normalizeStyle($setup.themeStore.cssVariables)
       },
       [
@@ -9812,8 +10222,8 @@ if (uni.restoreGlobal) {
           ])) : vue.createCommentVNode("v-if", true)
         ])) : vue.createCommentVNode("v-if", true)
       ],
-      4
-      /* STYLE */
+      6
+      /* CLASS, STYLE */
     );
   }
   const PagesProfileImportExport = /* @__PURE__ */ _export_sfc(_sfc_main$28, [["render", _sfc_render$27], ["__scopeId", "data-v-93ef2ab7"], ["__file", "D:/code/mechiBookkeeping/frontend/src/pages/profile/import-export.vue"]]);

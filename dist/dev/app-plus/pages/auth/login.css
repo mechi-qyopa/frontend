@@ -16,5 +16,7 @@
 }
 .footer-text[data-v-6c56cc25] { margin-top: 1.1875rem; color: #7c8799; font-size: 0.8125rem; text-align: center;
 }
-.link[data-v-6c56cc25] { color: #1677ff;
+.link[data-v-6c56cc25] { padding: 0.3125rem 0.125rem; color: #1677ff;
+}
+.link[data-v-6c56cc25]:active { opacity: .6;
 }

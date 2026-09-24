@@ -41,3 +41,14 @@ export function weekRangesInMonth(year, monthIndex) {
 export function formatAmount(value) {
   return Number(value || 0).toFixed(2)
 }
+
+const WEEKDAY_LABELS = ['日', '一', '二', '三', '四', '五', '六']
+
+export function dateParts(dateString) {
+  return { year: Number(dateString.slice(0, 4)), month: Number(dateString.slice(5, 7)) - 1, day: Number(dateString.slice(8, 10)) }
+}
+
+export function formatDayLabel(dateString) {
+  const { year, month, day } = dateParts(dateString)
+  return `${month + 1}月${day}日 星期${WEEKDAY_LABELS[new Date(year, month, day).getDay()]}`
+}

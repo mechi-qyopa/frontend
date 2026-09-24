@@ -1,9 +1,9 @@
 <template>
   <view class="page" :style="themeStore.cssVariables">
     <view class="book-header">
-      <view class="back-button" @click="goBack" />
-      <view class="book-title"><text>{{ editingId ? '编辑流水' : '默认账本' }}</text><text class="book-subtitle">{{ editingId ? '修改金额、备注或分类' : '记录每一笔收支' }}</text></view>
-      <image v-if="themeStore.currentTheme.mascot" class="book-icon-image" :src="themeStore.currentTheme.mascot" mode="aspectFit" />
+      <view class="back-button" aria-label="返回" role="button" @click="goBack" />
+      <view class="book-title"><text>{{ editingId ? '编辑流水' : '默认账本' }}</text><text class="book-subtitle">{{ editingId ? '修改金额、备注或分类' : (mascots ? '记录每一笔收支喵～' : '记录每一笔收支') }}</text></view>
+      <image v-if="headerCat" class="book-icon-image" :src="headerCat" mode="aspectFit" />
       <view v-else class="book-icon">📋</view>
     </view>
 
@@ -17,13 +17,16 @@
         <swiper-item v-for="(page, pageIndex) in categoryPages" :key="pageIndex">
           <view class="category-grid">
             <view v-for="item in page" :key="`${item.source}-${item.id}`" :class="['category-item', { selected: isSelectedCategory(item) }]" @click="selectCategory(item)">
-              <view class="category-icon"><text class="icon-emoji">{{ categoryIcon(item.name, form.transactionType) }}</text><image v-if="item.imageUrl" class="category-image" :src="item.imageUrl" mode="aspectFill" /></view>
+              <view class="category-icon"><text class="icon-emoji">{{ categoryIcon(item.name, form.transactionType) }}</text><image v-if="shouldShowImage(item)" class="category-image" :src="item.imageUrl" mode="aspectFill" @error="markImageLoadFailed(item)" /></view>
               <text class="category-name">{{ item.name }}</text>
             </view>
           </view>
         </swiper-item>
       </swiper>
-      <view v-else class="empty-category">暂无可用{{ form.transactionType === 'EXPENSE' ? '支出' : '收入' }}分类</view>
+      <view v-else class="empty-category">
+        <image v-if="mascots" class="empty-cat" :src="mascots.empty" mode="aspectFit" />
+        <text>暂无可用{{ form.transactionType === 'EXPENSE' ? '支出' : '收入' }}分类</text>
+      </view>
       <view v-if="categoryPages.length > 1" class="category-dots">
         <text v-for="(_, index) in categoryPages" :key="index" :class="{ 'active-dot': currentCategoryPage === index }" />
       </view>
@@ -32,18 +35,18 @@
     <view v-if="keyboardHeight > 0" class="keyboard-mask" @touchmove.stop.prevent @click="dismissKeyboard" />
     <view class="entry-panel" :style="{ bottom: keyboardHeight ? keyboardHeight + 'px' : undefined }">
       <view class="entry-row">
-        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注..." maxlength="255" :adjust-position="false" @confirm="dismissKeyboard" />
+        <input v-model.trim="form.note" class="note-input" placeholder="点击输入备注…" maxlength="255" :adjust-position="false" @confirm="dismissKeyboard" />
         <view class="amount-display"><text class="currency">¥</text><text>{{ displayAmount }}</text></view>
       </view>
       <view v-show="keyboardHeight <= 0" class="keypad">
-        <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)">{{ key.action === 'submit' && submitting ? '保存中' : key.action === 'submit' && editingId ? '保存修改' : key.label }}</view>
+        <view v-for="key in keypadKeys" :key="key.label" :class="['key', key.className, { loading: key.action === 'submit' && submitting }]" @click="handleKey(key.action)"><image v-if="mascots && key.action === 'date'" class="key-paw" :src="mascots.milk" mode="aspectFit" /><text v-else>{{ key.action === 'submit' && submitting ? '保存中' : key.action === 'submit' ? (mascots ? '保存喵' : (editingId ? '保存修改' : key.label)) : key.label }}</text></view>
       </view>
     </view>
 
     <view v-if="calendarVisible" class="calendar-mask" @click.self="closeCalendar">
       <view class="calendar-panel">
         <view class="calendar-handle" />
-        <view class="calendar-topbar"><text class="calendar-title">选择日期</text><text class="calendar-current">{{ form.occurredOn }}</text></view>
+        <view class="calendar-topbar"><view class="calendar-title-wrap"><image v-if="mascots" class="calendar-paw" :src="mascots.calendar" mode="aspectFit" /><text class="calendar-title">选择日期</text></view><text class="calendar-current">{{ form.occurredOn }}</text></view>
         <view class="calendar-nav"><text class="nav-button" @click="previousMonth">‹</text><text class="calendar-heading">{{ calendarYear }}年{{ calendarMonth + 1 }}月</text><text class="nav-button" @click="nextMonth">›</text></view>
         <view class="weekdays"><text v-for="weekday in weekdays" :key="weekday">{{ weekday }}</text></view>
         <view class="calendar-grid"><view v-for="(cell, index) in calendarCells" :key="`${cell.day || 'blank'}-${index}`" :class="['calendar-day', { 'calendar-empty': !cell.day, selected: isSelectedDate(cell.day), today: isToday(cell.day) }]" @click="cell.day && selectDate(cell.day)">{{ cell.day || '' }}</view></view>
@@ -54,7 +57,7 @@
 
 <script setup>
 import { computed, reactive, ref } from 'vue'
-import { onLoad, onUnload } from '@dcloudio/uni-app'
+import { onLoad, onShow, onUnload } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { formatDate } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
@@ -62,6 +65,9 @@ import { themeStore } from '../../stores/theme'
 import { categoryIcon } from '../../utils/category-icon'
 
 const CATEGORY_PAGE_SIZE = 12
+// 猫咪主题：mascots 存在即进入猫咪模式，各位置使用专属猫咪素材
+const mascots = computed(() => themeStore.currentTheme.mascots || null)
+const headerCat = computed(() => mascots.value?.smile || themeStore.currentTheme.mascot || '')
 const categories = ref([])
 const currentCategoryPage = ref(0)
 const failedImageKeys = ref(new Set())
@@ -72,7 +78,7 @@ const calendarYear = ref(new Date().getFullYear())
 const calendarMonth = ref(new Date().getMonth())
 const amountExpression = ref('')
 const keyboardHeight = ref(0)
-let keyboardListener = null
+let keyboardHandler = null
 const weekdays = ['一', '二', '三', '四', '五', '六', '日']
 const form = reactive({ categoryId: null, categorySource: null, transactionType: 'EXPENSE', amount: '', occurredOn: formatDate(new Date()), note: '' })
 const keypadKeys = [
@@ -82,8 +88,7 @@ const keypadKeys = [
   { label: '.', action: '.' }, { label: '0', action: '0' }, { label: '⌫', action: 'delete', className: 'utility-key' }, { label: '完成', action: 'submit', className: 'submit-key' }
 ]
 const filteredCategories = computed(() => categories.value
-  .filter(item => item.transactionType === form.transactionType && (item.source !== 'SYSTEM' || item.status === 'ACTIVE'))
-  .map(item => ({ ...item, label: `${item.name}${item.source === 'SYSTEM' ? '（系统）' : '（自定义）'}` })))
+  .filter(item => item.transactionType === form.transactionType && (item.source !== 'SYSTEM' || item.status === 'ACTIVE')))
 const categoryPages = computed(() => Array.from(
   { length: Math.ceil(filteredCategories.value.length / CATEGORY_PAGE_SIZE) },
   (_, index) => filteredCategories.value.slice(index * CATEGORY_PAGE_SIZE, (index + 1) * CATEGORY_PAGE_SIZE)
@@ -96,8 +101,16 @@ const calendarCells = computed(() => {
 })
 
 onLoad(load)
-if (typeof uni.onKeyboardHeightChange === 'function') keyboardListener = uni.onKeyboardHeightChange(({ height }) => { keyboardHeight.value = height })
-onUnload(() => { if (keyboardListener?.off) keyboardListener.off() })
+// uni.onKeyboardHeightChange 无返回值，必须保存 handler 引用并在 onUnload 中显式 off，否则重复进入页面会叠加监听
+if (typeof uni.onKeyboardHeightChange === 'function') {
+  keyboardHandler = ({ height }) => { keyboardHeight.value = height }
+  uni.onKeyboardHeightChange(keyboardHandler)
+}
+// 键盘"收起高度=0"事件偶尔丢失，回到本页时强制归零，防止蒙层与输入面板悬浮错位
+onShow(() => { keyboardHeight.value = 0 })
+onUnload(() => {
+  if (keyboardHandler && typeof uni.offKeyboardHeightChange === 'function') uni.offKeyboardHeightChange(keyboardHandler)
+})
 function goBack() { uni.navigateBack({ delta: 1, fail: () => uni.switchTab({ url: '/pages/ledger/index' }) }) }
 function dismissKeyboard() { if (typeof uni.hideKeyboard === 'function') uni.hideKeyboard() }
 async function load(options = {}) {
@@ -200,10 +213,16 @@ async function submit() {
 .book-header { display: flex; align-items: center; margin: 0 24rpx 20rpx; padding: 24rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
 .back-button { position: relative; display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; flex: 0 0 64rpx; border-radius: 16rpx; background: #eff6ff; }
 .back-button::before { width: 16rpx; height: 16rpx; margin-left: 6rpx; border-bottom: 4rpx solid #1677ff; border-left: 4rpx solid #1677ff; content: ''; transform: rotate(45deg); }
+.back-button:active { opacity: .7; }
 .book-title { display: flex; flex: 1; flex-direction: column; align-items: flex-end; color: #1d2939; font-size: 29rpx; font-weight: 700; }
 .book-subtitle { margin-top: 5rpx; color: #98a2b3; font-size: 20rpx; font-weight: 400; }
 .book-icon { display: flex; align-items: center; justify-content: center; width: 48rpx; height: 48rpx; margin-left: 15rpx; font-size: 38rpx; line-height: 1; }
-.book-icon-image { width: 48rpx; height: 48rpx; margin-left: 15rpx; }
+.book-icon-image { width: 64rpx; height: 64rpx; margin-left: 12rpx; }
+.empty-category { display: flex; flex-direction: column; align-items: center; justify-content: center; padding-top: 100rpx; color: #98a2b3; text-align: center; }
+.empty-cat { width: 140rpx; height: 140rpx; margin-bottom: 10rpx; }
+.key-paw { width: 38rpx; height: 38rpx; opacity: .9; }
+.calendar-title-wrap { display: flex; align-items: center; }
+.calendar-paw { width: 40rpx; height: 40rpx; margin-right: 12rpx; }
 .type-switch { display: flex; gap: 0; margin: 0 24rpx 24rpx; overflow: hidden; border-radius: 20rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
 .type { position: relative; flex: 1; padding: 22rpx 0; color: #667085; font-size: 30rpx; text-align: center; }
 .type.active-expense, .type.active-income { color: #1677ff; background: #eff6ff; }
@@ -218,6 +237,7 @@ async function submit() {
 .category-name { width: 100%; margin-top: 8rpx; overflow: hidden; color: #475467; font-size: 24rpx; text-align: center; text-overflow: ellipsis; white-space: nowrap; }
 .category-item.selected .category-icon { border: 4rpx solid #1677ff; background: #eff6ff; box-shadow: 0 6rpx 14rpx rgba(22, 119, 255, .16); transform: scale(1.04); }
 .category-item.selected .category-name { color: #1677ff; }
+.category-item:active .category-icon { transform: scale(.94); }
 .empty-category { padding-top: 134rpx; color: #98a2b3; text-align: center; }
 .keyboard-mask { position: fixed; z-index: 19; top: 0; right: 0; bottom: 0; left: 0; }
 .category-dots { display: flex; justify-content: center; gap: 13rpx; margin: 28rpx 0 4rpx; }
@@ -226,7 +246,7 @@ async function submit() {
 .entry-panel { position: fixed; right: 0; bottom: 0; left: 0; z-index: 20; padding: 24rpx 24rpx calc(24rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid #e4e7ec; background: #fff; box-shadow: 0 -8rpx 24rpx rgba(36, 58, 99, .06); }
 .entry-row { display: flex; align-items: center; height: 82rpx; margin-bottom: 16rpx; }
 .note-input { flex: 1; height: 82rpx; min-width: 0; padding: 0 16rpx; border: 0; border-radius: 16rpx 0 0 16rpx; color: #344054; background: #f7f8fa; font-size: 27rpx; box-sizing: border-box; }
-.amount-display { display: flex; align-items: center; justify-content: flex-end; min-width: 190rpx; height: 82rpx; padding: 0 16rpx 0 2rpx; border-radius: 0 16rpx 16rpx 0; color: #1677ff; background: #f7f8fa; font-size: 40rpx; font-weight: 600; box-sizing: border-box; }
+.amount-display { display: flex; align-items: center; justify-content: flex-end; min-width: 190rpx; height: 82rpx; padding: 0 16rpx 0 2rpx; border-radius: 0 16rpx 16rpx 0; color: #1677ff; background: #f7f8fa; font-size: 40rpx; font-weight: 600; font-variant-numeric: tabular-nums; box-sizing: border-box; }
 .currency { margin-right: 5rpx; font-size: 29rpx; font-weight: 400; }
 .keypad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12rpx; }
 .key { display: flex; align-items: center; justify-content: center; height: 104rpx; border: 1rpx solid #e4e7ec; border-radius: 16rpx; color: #344054; background: #f8fafc; font-size: 36rpx; font-weight: 700; }

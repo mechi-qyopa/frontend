@@ -9,16 +9,17 @@
         <text class="range-divider">至</text>
         <picker mode="date" :value="range.endDate" @change="selectCustomEnd"><view class="date-field"><text>结束日期</text><text>{{ range.endDate }}</text></view></picker>
       </view>
-      <view v-else class="range-control" @click="openPicker"><view><text class="range-title">{{ periodTitle }}</text><text class="range-detail">{{ range.startDate }} 至 {{ range.endDate }}</text></view><view class="range-actions"><view class="range-arrow" /></view></view>
+      <view v-else class="range-control" @click="openPicker"><view class="range-info"><image v-if="mascots" class="mini-cat" :src="mascots.smug" mode="aspectFit" /><view><text class="range-title">{{ periodTitle }}</text><text class="range-detail">{{ range.startDate }} 至 {{ range.endDate }}</text></view></view><view class="range-actions"><view class="range-arrow" /></view></view>
     </view>
 
     <view class="summary-card">
       <view><text class="summary-label">区间总支出</text><text class="summary-amount">¥ {{ formatAmount(expenseTotal) }}</text></view>
       <view class="summary-side"><text>{{ trendUnitLabel }}均支出</text><text>¥ {{ formatAmount(averageExpense) }}</text></view>
+      <image v-if="mascots" class="summary-avatar" :src="mascots.shock" mode="aspectFit" />
     </view>
 
     <view class="card trend-card">
-      <view class="card-header"><view><text class="card-title">支出趋势</text><text class="card-subtitle">{{ trendUnitLabel }}统计</text></view><text class="peak-label">最高 ¥ {{ formatAmount(peakAmount) }}</text></view>
+      <view class="card-header"><view class="card-title-wrap"><image v-if="mascots" class="card-paw" :src="mascots.fork" mode="aspectFit" /><view><text class="card-title">支出趋势</text><text class="card-subtitle">{{ trendUnitLabel }}统计</text></view></view><text class="peak-label">最高 ¥ {{ formatAmount(peakAmount) }}</text></view>
       <view v-if="trendData.length && expenseTotal > 0" class="trend-chart">
         <view class="trend-y-axis"><text>¥ {{ formatAmount(peakAmount) }}</text><text>¥ 0.00</text></view>
         <view class="trend-plot-wrap">
@@ -30,15 +31,17 @@
           <view class="trend-x-axis"><text v-for="point in trendLabelPoints" :key="point.key" :style="point.labelStyle">{{ point.label }}</text></view>
         </view>
       </view>
-      <view v-else-if="!loading" class="chart-empty">该区间暂无支出记录</view>
+      <view v-else-if="!loading" class="chart-empty"><image v-if="mascots" class="empty-cat" :src="mascots.empty" mode="aspectFit" /><text>{{ mascots ? '喵呜，该区间暂无支出记录' : '该区间暂无支出记录' }}</text></view>
     </view>
 
     <view class="card category-card">
-      <view class="card-header"><view><text class="card-title">支出占比</text><text class="card-subtitle">按分类汇总</text></view><text class="total-count">{{ expenseTransactions }} 笔</text></view>
+      <view class="card-header"><view class="card-title-wrap"><image v-if="mascots" class="card-paw" :src="mascots.note" mode="aspectFit" /><view><text class="card-title">支出占比</text><text class="card-subtitle">按分类汇总</text></view></view><text class="total-count">{{ expenseTransactions }} 笔</text></view>
       <view v-if="categoryStats.length" class="pie-section"><view :class="['pie-chart', { 'single-category': categoryStats.length === 1 }]" :style="pieChartStyle"><view class="pie-hole"><text>总支出</text><text>¥ {{ formatAmount(expenseTotal) }}</text></view></view><view class="pie-legend"><view v-for="(item, index) in categoryStats.slice(0, 4)" :key="item.key" class="legend-item" @click="goCategoryDetail(item)"><text class="legend-dot" :style="{ background: pieColor(index) }" /><view><text>{{ item.name }}</text><text>{{ item.percent.toFixed(1) }}%</text></view></view></view></view>
       <view v-if="categoryStats.length" class="category-list"><view v-for="item in categoryStats" :key="item.key" class="category-row" @click="goCategoryDetail(item)"><view class="category-row-top"><view class="category-name"><text class="rank-badge">{{ item.rank }}</text><text>{{ item.name }}</text></view><text>¥ {{ formatAmount(item.amount) }}</text></view><view class="progress-track"><view class="progress-value" :style="{ width: `${item.percent}%` }" /></view><view class="category-row-bottom"><text>{{ item.count }} 笔</text><text>{{ item.percent.toFixed(1) }}%</text></view></view></view>
-      <view v-else-if="!loading" class="empty">该区间暂无支出分类</view><view v-else class="empty">加载中…</view>
+      <view v-else-if="!loading" class="empty"><image v-if="mascots" class="empty-cat" :src="mascots.empty" mode="aspectFit" /><text>{{ mascots ? '喵呜，该区间暂无支出分类' : '该区间暂无支出分类' }}</text></view><view v-else class="empty">加载中…</view>
     </view>
+
+    <view v-if="mascots" class="ledger-cat-footer"><image :src="mascots.cake" mode="aspectFit" /><text>喵，{{ periodTitle }}的支出都看完啦～</text></view>
 
     <!-- #ifdef APP-PLUS -->
     <custom-tab-bar />
@@ -58,8 +61,8 @@
 </template>
 
 <script setup>
-import { computed, reactive, ref } from 'vue'
-import { onShow } from '@dcloudio/uni-app'
+import { computed, nextTick, reactive, ref } from 'vue'
+import { onReady, onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { formatAmount, formatDate, monthRange, weekRange, weekRangesInMonth, yearRange } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
@@ -69,6 +72,8 @@ import CustomTabBar from '../../custom-tab-bar/index.vue'
 // #endif
 
 const range = reactive(monthRange())
+// 猫咪主题：mascots 存在即进入猫咪模式
+const mascots = computed(() => themeStore.currentTheme.mascots || null)
 const periodType = ref('MONTH')
 const pickerVisible = ref(false)
 const pickerMode = ref('MONTH')
@@ -83,10 +88,12 @@ const periodOptions = [{ value: 'WEEK', label: '周' }, { value: 'MONTH', label:
 const pickerModes = [{ value: 'WEEK', label: '按周' }, { value: 'MONTH', label: '按月' }, { value: 'YEAR', label: '按年' }]
 const months = Array.from({ length: 12 }, (_, index) => ({ value: index, label: `${index + 1}月` }))
 const pieColors = computed(() => themeStore.currentTheme.colors.chart)
-const screenWidth = uni.getSystemInfoSync().windowWidth || 375
-const trendPlotWidth = screenWidth * 566 / 750
-const trendPlotHeight = screenWidth * 184 / 750
+// getSystemInfoSync 已废弃，改用 getWindowInfo
+const screenWidth = uni.getWindowInfo().windowWidth || 375
+// 折线图坐标基于容器实际宽高：先给 rpx 换算兜底值，挂载后实测修正（不同屏宽/边距下按比例硬编码会错位）
 const trendPlotPadding = screenWidth * 12 / 750
+const trendPlotWidth = ref(screenWidth * 566 / 750)
+const trendPlotHeight = ref(screenWidth * 184 / 750)
 let requestId = 0
 
 const years = computed(() => Array.from({ length: 12 }, (_, index) => pickerYear.value - 11 + index))
@@ -99,13 +106,13 @@ const averageExpense = computed(() => expenseTotal.value / Math.max(1, trendData
 const trendPoints = computed(() => {
   const data = trendData.value
   const max = Math.max(1, ...data.map(item => item.amount))
-  const innerWidth = Math.max(1, trendPlotWidth - trendPlotPadding * 2)
-  const innerHeight = Math.max(1, trendPlotHeight - trendPlotPadding * 2)
+  const innerWidth = Math.max(1, trendPlotWidth.value - trendPlotPadding * 2)
+  const innerHeight = Math.max(1, trendPlotHeight.value - trendPlotPadding * 2)
   return data.map((item, index) => {
     const ratio = data.length === 1 ? .5 : index / (data.length - 1)
     const x = trendPlotPadding + innerWidth * ratio
     const y = trendPlotPadding + innerHeight * item.amount / max
-    return { key: item.key, label: item.label, x, y, style: { left: `${x}px`, bottom: `${y}px` }, labelStyle: { left: `${x / trendPlotWidth * 100}%` } }
+    return { key: item.key, label: item.label, x, y, style: { left: `${x}px`, bottom: `${y}px` }, labelStyle: { left: `${x / trendPlotWidth.value * 100}%` } }
   })
 })
 const trendSegments = computed(() => trendPoints.value.slice(1).map((point, index) => {
@@ -144,6 +151,16 @@ const pieChartStyle = computed(() => {
 })
 
 onShow(load)
+onReady(measureTrendPlot)
+// 数据渲染后实测 .trend-plot 尺寸，修正按屏宽比例估算的兜底值
+function measureTrendPlot() {
+  uni.createSelectorQuery().select('.trend-plot').boundingClientRect((rect) => {
+    if (rect?.width && rect?.height) {
+      trendPlotWidth.value = rect.width
+      trendPlotHeight.value = rect.height
+    }
+  }).exec()
+}
 async function load() {
   const currentRequest = ++requestId
   loading.value = true
@@ -158,7 +175,10 @@ async function load() {
   } catch (error) {
     if (currentRequest === requestId) showRequestError(error)
   } finally {
-    if (currentRequest === requestId) loading.value = false
+    if (currentRequest === requestId) {
+      loading.value = false
+      nextTick(measureTrendPlot)
+    }
   }
 }
 
@@ -298,7 +318,7 @@ function pieColor(index) { return pieColors.value[index % pieColors.value.length
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding: calc(24rpx + var(--status-bar-height, 0)) 24rpx calc(48rpx + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }.filter-card,.card { margin: 0 0 24rpx; padding: 26rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }.period-tabs { display: flex; gap: 10rpx; padding: 8rpx; border-radius: 16rpx; background: #f5f7fb; }.period-tab { flex: 1; padding: 14rpx 0; border-radius: 12rpx; color: #667085; font-size: 26rpx; text-align: center; }.period-tab.active { color: #1677ff; background: #fff; box-shadow: 0 3rpx 10rpx rgba(36, 58, 99, .1); font-weight: 600; }.range-control { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 2rpx 0; }.range-title,.range-detail { display: block; }.range-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.range-detail { margin-top: 8rpx; color: #98a2b3; font-size: 23rpx; }.range-actions { display: flex; align-items: center; justify-content: center; width: 52rpx; height: 52rpx; border-radius: 16rpx; background: #f5f8fd; }.range-arrow { position: relative; display: block; width: 30rpx; height: 30rpx; border: 3rpx solid #667085; border-radius: 50%; box-sizing: border-box; }.range-arrow::before,.range-arrow::after { position: absolute; border-radius: 3rpx; background: #667085; content: ''; }.range-arrow::before { top: 5rpx; left: 11rpx; width: 3rpx; height: 11rpx; }.range-arrow::after { top: 14rpx; left: 13rpx; width: 9rpx; height: 3rpx; }.custom-range { display: flex; align-items: center; gap: 12rpx; padding-top: 24rpx; }.custom-range picker { flex: 1; min-width: 0; }.date-field { padding: 16rpx; border-radius: 14rpx; background: #f7f8fa; }.date-field text { display: block; overflow: hidden; color: #344054; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }.date-field text:first-child { margin-bottom: 7rpx; color: #98a2b3; font-size: 20rpx; }.range-divider { color: #98a2b3; font-size: 23rpx; }.summary-card { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; padding: 30rpx; border-radius: 24rpx; color: #fff; background: linear-gradient(135deg, #1677ff, #5c9dff); box-shadow: 0 10rpx 28rpx rgba(22, 119, 255, .2); }.summary-label,.summary-amount,.summary-side text { display: block; }.summary-label,.summary-side text:first-child { color: rgba(255, 255, 255, .74); font-size: 24rpx; }.summary-amount { margin-top: 12rpx; font-size: 42rpx; font-weight: 600; }.summary-side { text-align: right; }.summary-side text:last-child { margin-top: 12rpx; font-size: 28rpx; font-weight: 600; }.card-header { display: flex; align-items: flex-start; justify-content: space-between; }.card-title,.card-subtitle { display: block; }.card-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.card-subtitle { margin-top: 7rpx; color: #98a2b3; font-size: 22rpx; }.peak-label,.total-count { padding: 8rpx 12rpx; border-radius: 12rpx; color: #1677ff; background: #eff6ff; font-size: 22rpx; }.trend-card { position: relative; }.trend-chart { display: flex; gap: 12rpx; margin-top: 24rpx; }.trend-y-axis { display: flex; flex: 0 0 68rpx; flex-direction: column; justify-content: space-between; height: 184rpx; padding: 1rpx 0; color: #98a2b3; font-size: 19rpx; line-height: 1; text-align: right; box-sizing: border-box; }.trend-plot-wrap { flex: 1; min-width: 0; }.trend-plot { position: relative; height: 184rpx; border-bottom: 1rpx solid #e9eff8; }.trend-grid-line { position: absolute; right: 0; left: 0; height: 1rpx; background: #e9eff8; }.grid-top { top: 0; }.grid-middle { top: 50%; }.grid-bottom { bottom: 0; }.trend-segment { position: absolute; z-index: 1; height: 4rpx; border-radius: 4rpx; background: #1677ff; transform-origin: left center; }.trend-point { position: absolute; z-index: 2; width: 12rpx; height: 12rpx; margin-bottom: -6rpx; margin-left: -6rpx; border: 3rpx solid #fff; border-radius: 50%; background: #1677ff; box-shadow: 0 2rpx 6rpx rgba(22, 119, 255, .25); box-sizing: border-box; }.trend-x-axis { position: relative; height: 34rpx; margin-top: 10rpx; }.trend-x-axis text { position: absolute; overflow: hidden; max-width: 68rpx; color: #98a2b3; font-size: 18rpx; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }.chart-empty { padding: 90rpx 0 54rpx; color: #98a2b3; font-size: 24rpx; text-align: center; }.pie-section { display: flex; align-items: center; gap: 18rpx; margin-top: 26rpx; }.pie-chart { position: relative; display: flex; flex: 0 0 260rpx; align-items: center; justify-content: center; width: 260rpx; height: 260rpx; border-radius: 50%; background: #1677ff; }.pie-chart.single-category { background: #1677ff; }.pie-hole { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 156rpx; height: 156rpx; border-radius: 50%; background: #fff; }.pie-hole text:first-child { color: #98a2b3; font-size: 20rpx; }.pie-hole text:last-child { margin-top: 8rpx; color: #1d2939; font-size: 23rpx; font-weight: 600; }.pie-legend { display: flex; flex: 1; flex-direction: column; gap: 16rpx; min-width: 0; }.legend-item { display: flex; align-items: center; gap: 10rpx; min-width: 0; cursor: pointer; }.legend-item:active { opacity: .65; }.legend-dot { flex: 0 0 14rpx; width: 14rpx; height: 14rpx; border-radius: 50%; }.legend-item view { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8rpx; min-width: 0; }.legend-item text { overflow: hidden; color: #667085; font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }.legend-item text:last-child { flex: 0 0 auto; color: #344054; font-weight: 500; }.category-list { margin-top: 24rpx; }.category-row { cursor: pointer; }.category-row:active { opacity: .65; }.category-row + .category-row { margin-top: 25rpx; }.category-row-top,.category-row-bottom { display: flex; align-items: center; justify-content: space-between; }.category-row-top { color: #344054; font-size: 25rpx; font-weight: 500; }.category-name { display: flex; align-items: center; gap: 12rpx; }.rank-badge { display: flex; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border-radius: 50%; color: #1677ff; background: #eff6ff; font-size: 20rpx; }.progress-track { height: 13rpx; margin: 14rpx 0 9rpx; overflow: hidden; border-radius: 10rpx; background: #edf2f9; }.progress-value { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1677ff, #69a7ff); }.category-row-bottom { color: #98a2b3; font-size: 21rpx; }.empty { padding: 65rpx 0 35rpx; color: #98a2b3; text-align: center; }.picker-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }.date-picker { width: 100%; min-height: 610rpx; padding: 18rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); border-radius: 32rpx 32rpx 0 0; background: #fff; box-sizing: border-box; }.picker-handle { width: 72rpx; height: 8rpx; margin: 0 auto 30rpx; border-radius: 10rpx; background: #e4e7ec; }.picker-tabs { display: flex; justify-content: space-around; margin-bottom: 34rpx; }.picker-tab { position: relative; padding: 8rpx 16rpx; color: #98a2b3; font-size: 30rpx; }.picker-tab.active { color: #1d2939; font-weight: 600; }.picker-tab.active::after { position: absolute; right: 16rpx; bottom: 0; left: 16rpx; height: 5rpx; border-radius: 6rpx; background: #1677ff; content: ''; }.picker-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; }.nav-button { width: 70rpx; color: #1d2939; font-size: 68rpx; line-height: 1; text-align: center; }.picker-heading { color: #1d2939; font-size: 34rpx; font-weight: 600; }.date-grid { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 24rpx; }.date-cell { display: flex; align-items: center; justify-content: center; height: 76rpx; border-radius: 16rpx; color: #344054; font-size: 29rpx; }.date-cell.active { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .22); }.week-list { display: flex; flex-direction: column; gap: 16rpx; max-height: 440rpx; overflow-y: auto; }.week-cell { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 24rpx; border-radius: 18rpx; color: #344054; background: #f7f8fa; font-size: 28rpx; }.week-cell text:last-child { color: #98a2b3; font-size: 22rpx; }.week-cell.active { color: #fff; background: #1677ff; }.week-cell.active text:last-child { color: rgba(255, 255, 255, .78); }
+.page { min-height: 100vh; padding: calc(24rpx + var(--status-bar-height, 0)) 24rpx calc(48rpx + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }.filter-card,.card { margin: 0 0 24rpx; padding: 26rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }.period-tabs { display: flex; gap: 10rpx; padding: 8rpx; border-radius: 16rpx; background: #f5f7fb; }.period-tab { flex: 1; padding: 14rpx 0; border-radius: 12rpx; color: #667085; font-size: 26rpx; text-align: center; }.period-tab.active { color: #1677ff; background: #fff; box-shadow: 0 3rpx 10rpx rgba(36, 58, 99, .1); font-weight: 600; }.range-control { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 2rpx 0; }.range-title,.range-detail { display: block; }.range-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.range-detail { margin-top: 8rpx; color: #98a2b3; font-size: 23rpx; }.range-actions { display: flex; align-items: center; justify-content: center; width: 52rpx; height: 52rpx; border-radius: 16rpx; background: #f5f8fd; }.range-arrow { position: relative; display: block; width: 30rpx; height: 30rpx; border: 3rpx solid #667085; border-radius: 50%; box-sizing: border-box; }.range-arrow::before,.range-arrow::after { position: absolute; border-radius: 3rpx; background: #667085; content: ''; }.range-arrow::before { top: 5rpx; left: 11rpx; width: 3rpx; height: 11rpx; }.range-arrow::after { top: 14rpx; left: 13rpx; width: 9rpx; height: 3rpx; }.custom-range { display: flex; align-items: center; gap: 12rpx; padding-top: 24rpx; }.custom-range picker { flex: 1; min-width: 0; }.date-field { padding: 16rpx; border-radius: 14rpx; background: #f7f8fa; }.date-field text { display: block; overflow: hidden; color: #344054; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }.date-field text:first-child { margin-bottom: 7rpx; color: #98a2b3; font-size: 20rpx; }.range-divider { color: #98a2b3; font-size: 23rpx; }.summary-card { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; padding: 30rpx; border-radius: 24rpx; color: #fff; background: linear-gradient(135deg, #1677ff, #5c9dff); box-shadow: 0 10rpx 28rpx rgba(22, 119, 255, .2); }.summary-label,.summary-amount,.summary-side text { display: block; }.summary-label,.summary-side text:first-child { color: rgba(255, 255, 255, .74); font-size: 24rpx; }.summary-amount { margin-top: 12rpx; color: #fff; font-size: 42rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.summary-side { text-align: right; }.summary-side text:last-child { margin-top: 12rpx; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.card-header { display: flex; align-items: flex-start; justify-content: space-between; }.card-title,.card-subtitle { display: block; }.card-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.card-subtitle { margin-top: 7rpx; color: #98a2b3; font-size: 22rpx; }.peak-label,.total-count { padding: 8rpx 12rpx; border-radius: 12rpx; color: #1677ff; background: #eff6ff; font-size: 22rpx; }.trend-card { position: relative; }.trend-chart { display: flex; gap: 12rpx; margin-top: 24rpx; }.trend-y-axis { display: flex; flex: 0 0 68rpx; flex-direction: column; justify-content: space-between; height: 184rpx; padding: 1rpx 0; color: #98a2b3; font-size: 19rpx; line-height: 1; text-align: right; box-sizing: border-box; }.trend-plot-wrap { flex: 1; min-width: 0; }.trend-plot { position: relative; height: 184rpx; border-bottom: 1rpx solid #e9eff8; }.trend-grid-line { position: absolute; right: 0; left: 0; height: 1rpx; background: #e9eff8; }.grid-top { top: 0; }.grid-middle { top: 50%; }.grid-bottom { bottom: 0; }.trend-segment { position: absolute; z-index: 1; height: 4rpx; border-radius: 4rpx; background: #1677ff; transform-origin: left center; }.trend-point { position: absolute; z-index: 2; width: 12rpx; height: 12rpx; margin-bottom: -6rpx; margin-left: -6rpx; border: 3rpx solid #fff; border-radius: 50%; background: #1677ff; box-shadow: 0 2rpx 6rpx rgba(22, 119, 255, .25); box-sizing: border-box; }.trend-x-axis { position: relative; height: 34rpx; margin-top: 10rpx; }.trend-x-axis text { position: absolute; overflow: hidden; max-width: 68rpx; color: #98a2b3; font-size: 18rpx; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }.chart-empty { padding: 90rpx 0 54rpx; color: #98a2b3; font-size: 24rpx; text-align: center; }.pie-section { display: flex; align-items: center; gap: 18rpx; margin-top: 26rpx; }.pie-chart { position: relative; display: flex; flex: 0 0 260rpx; align-items: center; justify-content: center; width: 260rpx; height: 260rpx; border-radius: 50%; background: #1677ff; }.pie-chart.single-category { background: #1677ff; }.pie-hole { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 156rpx; height: 156rpx; border-radius: 50%; background: #fff; }.pie-hole text:first-child { color: #98a2b3; font-size: 20rpx; }.pie-hole text:last-child { margin-top: 8rpx; color: #1d2939; font-size: 23rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.pie-legend { display: flex; flex: 1; flex-direction: column; gap: 16rpx; min-width: 0; }.legend-item { display: flex; align-items: center; gap: 10rpx; min-width: 0; cursor: pointer; }.legend-item:active { opacity: .65; }.legend-dot { flex: 0 0 14rpx; width: 14rpx; height: 14rpx; border-radius: 50%; }.legend-item view { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8rpx; min-width: 0; }.legend-item text { overflow: hidden; color: #667085; font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }.legend-item text:last-child { flex: 0 0 auto; color: #344054; font-weight: 500; }.category-list { margin-top: 24rpx; }.category-row { cursor: pointer; }.category-row:active { opacity: .65; }.category-row + .category-row { margin-top: 25rpx; }.category-row-top,.category-row-bottom { display: flex; align-items: center; justify-content: space-between; }.category-row-top { color: #344054; font-size: 25rpx; font-weight: 500; font-variant-numeric: tabular-nums; }.category-name { display: flex; align-items: center; gap: 12rpx; min-width: 0; }.category-name text:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.rank-badge { display: flex; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border-radius: 50%; color: #1677ff; background: #eff6ff; font-size: 20rpx; }.progress-track { height: 13rpx; margin: 14rpx 0 9rpx; overflow: hidden; border-radius: 10rpx; background: #edf2f9; }.progress-value { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1677ff, #69a7ff); }.category-row-bottom { color: #98a2b3; font-size: 21rpx; }.empty { padding: 65rpx 0 35rpx; color: #98a2b3; text-align: center; }.picker-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }.date-picker { width: 100%; min-height: 610rpx; padding: 18rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); border-radius: 32rpx 32rpx 0 0; background: #fff; box-sizing: border-box; }.picker-handle { width: 72rpx; height: 8rpx; margin: 0 auto 30rpx; border-radius: 10rpx; background: #e4e7ec; }.picker-tabs { display: flex; justify-content: space-around; margin-bottom: 34rpx; }.picker-tab { position: relative; padding: 8rpx 16rpx; color: #98a2b3; font-size: 30rpx; }.picker-tab.active { color: #1d2939; font-weight: 600; }.picker-tab.active::after { position: absolute; right: 16rpx; bottom: 0; left: 16rpx; height: 5rpx; border-radius: 6rpx; background: #1677ff; content: ''; }.picker-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; }.nav-button { width: 70rpx; color: #1d2939; font-size: 68rpx; line-height: 1; text-align: center; }.picker-heading { color: #1d2939; font-size: 34rpx; font-weight: 600; }.date-grid { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 24rpx; }.date-cell { display: flex; align-items: center; justify-content: center; height: 76rpx; border-radius: 16rpx; color: #344054; font-size: 29rpx; }.date-cell.active { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .22); }.week-list { display: flex; flex-direction: column; gap: 16rpx; max-height: 440rpx; overflow-y: auto; overscroll-behavior: contain; }.week-cell { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 24rpx; border-radius: 18rpx; color: #344054; background: #f7f8fa; font-size: 28rpx; }.week-cell text:last-child { color: #98a2b3; font-size: 22rpx; }.week-cell.active { color: #fff; background: #1677ff; }.week-cell.active text:last-child { color: rgba(255, 255, 255, .78); }
 
 /* 主题覆盖：统计卡片、筛选交互、图表与弹层均随当前主题变量更新。 */
 .page { background: var(--theme-page-bg) !important; }
@@ -327,4 +347,20 @@ function pieColor(index) { return pieColors.value[index % pieColors.value.length
 .date-cell, .week-cell { color: var(--theme-text-strong) !important; }
 .week-cell { background: var(--theme-page-bg) !important; }
 .week-cell.active, .week-cell.active text:last-child { color: #fff !important; }
+
+/* 触摸反馈：可点击元素统一按压态提示。 */
+.period-tab:active, .picker-tab:active, .nav-button:active, .date-cell:active, .week-cell:active, .range-control:active { opacity: .7; }
+
+/* 猫咪主题装饰：mascots 存在时显示的猫咪元素。 */
+/* 汇总卡右侧头像（白圆底衬托） */
+.range-info { display: flex; align-items: center; }
+.mini-cat { width: 56rpx; height: 56rpx; margin-right: 14rpx; padding: 4rpx; box-sizing: border-box; border-radius: 50%; background: var(--theme-primary-soft); }
+.card-title-wrap { display: flex; align-items: center; }
+.card-paw { width: 30rpx; height: 30rpx; margin-right: 10rpx; }
+.summary-avatar { width: 88rpx; height: 88rpx; margin-left: 8rpx; padding: 8rpx; box-sizing: border-box; border-radius: 50%; background: rgba(255, 255, 255, .92); flex-shrink: 0; box-shadow: 0 4rpx 14rpx rgba(93, 58, 21, .2); }
+.chart-empty, .empty { display: flex; flex-direction: column; align-items: center; }
+.empty-cat { width: 170rpx; height: 170rpx; margin-bottom: 8rpx; }
+.ledger-cat-footer { display: flex; flex-direction: column; align-items: center; gap: 10rpx; margin-top: 8rpx; padding: 34rpx 30rpx 30rpx; border-radius: var(--theme-radius-card); background: var(--theme-surface); box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .04); }
+.ledger-cat-footer image { width: 150rpx; height: 150rpx; }
+.ledger-cat-footer text { color: var(--theme-text-muted); font-size: 23rpx; }
 </style>

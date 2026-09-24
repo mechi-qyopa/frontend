@@ -60,7 +60,7 @@ __renderjsModules["18eb3192"] = (() => {
   });
   var stdin_default = {
     data() {
-      return { lastId: 0, controller: null };
+      return { lastId: 0, controller: null, aborting: false };
     },
     methods: {
       onRequest(newVal, oldVal, ownerInstance) {
@@ -75,7 +75,28 @@ __renderjsModules["18eb3192"] = (() => {
         if (!request || !request.id || request.id === this.lastId)
           return;
         this.lastId = request.id;
+        if (request.abort) {
+          if (this.controller) {
+            this.aborting = true;
+            this.controller.abort();
+          }
+          return;
+        }
         this.run(request, ownerInstance);
+      },
+      // 非 JSON 响应（如网关 502 HTML）不能整段透传到 toast，截断并优先取后端 message 字段
+      humanizeError(text, status) {
+        const raw = (text || "").trim();
+        if (!raw)
+          return `\u6D41\u5F0F\u8BF7\u6C42\u5931\u8D25(${status})`;
+        try {
+          const data = JSON.parse(raw);
+          const message = (data == null ? void 0 : data.message) || (data == null ? void 0 : data.error) || (data == null ? void 0 : data.msg);
+          if (message)
+            return String(message);
+        } catch (error) {
+        }
+        return raw.length > 60 ? `${raw.slice(0, 60)}\u2026` : raw;
       },
       run(request, ownerInstance) {
         return __async(this, null, function* () {
@@ -83,7 +104,12 @@ __renderjsModules["18eb3192"] = (() => {
             this.controller.abort();
           const controller = new AbortController();
           this.controller = controller;
-          const timeout = setTimeout(() => controller.abort(), 12e4);
+          this.aborting = false;
+          let idleTimer = setTimeout(() => controller.abort(), 12e4);
+          const resetIdle = () => {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(() => controller.abort(), 12e4);
+          };
           try {
             const response = yield fetch(request.url, {
               method: "POST",
@@ -95,14 +121,14 @@ __renderjsModules["18eb3192"] = (() => {
               signal: controller.signal
             });
             if (response.status === 401) {
-              clearTimeout(timeout);
+              clearTimeout(idleTimer);
               ownerInstance.callMethod("onStreamError", "UNAUTHORIZED");
               return;
             }
             if (!response.ok || !response.body) {
               const text = response.body ? yield response.text() : "";
-              clearTimeout(timeout);
-              ownerInstance.callMethod("onStreamError", text || `\u6D41\u5F0F\u8BF7\u6C42\u5931\u8D25(${response.status})`);
+              clearTimeout(idleTimer);
+              ownerInstance.callMethod("onStreamError", this.humanizeError(text, response.status));
               return;
             }
             const reader = response.body.getReader();
@@ -112,6 +138,7 @@ __renderjsModules["18eb3192"] = (() => {
               const { done, value } = yield reader.read();
               if (done)
                 break;
+              resetIdle();
               buffer += decoder.decode(value, { stream: true });
               buffer = this.consume(buffer, ownerInstance);
             }
@@ -120,10 +147,14 @@ __renderjsModules["18eb3192"] = (() => {
               this.consume(`${buffer}
 
 `, ownerInstance);
-            clearTimeout(timeout);
+            clearTimeout(idleTimer);
             ownerInstance.callMethod("onStreamDone");
           } catch (error) {
-            clearTimeout(timeout);
+            clearTimeout(idleTimer);
+            if (this.aborting) {
+              this.aborting = false;
+              return;
+            }
             if ((error == null ? void 0 : error.name) === "AbortError")
               ownerInstance.callMethod("onStreamError", "\u56DE\u590D\u8D85\u65F6\uFF0C\u8BF7\u91CD\u8BD5");
             else

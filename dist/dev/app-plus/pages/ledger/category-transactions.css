@@ -16,12 +16,30 @@
 }.category-icon-bg[data-v-0237c60a] { background: #f2f4f7;
 }.icon-image[data-v-0237c60a] { position: absolute; inset: 0; width: 100%; height: 100%;
 }.icon-emoji[data-v-0237c60a] { font-size: 1.125rem; line-height: 1; filter: saturate(.9);
-}.item-main[data-v-0237c60a] { display: flex; flex: 1; flex-direction: column; gap: 0.25rem; margin-left: 0.5625rem;
-}.item-name[data-v-0237c60a] { font-weight: 500;
-}.item-note[data-v-0237c60a] { color: #98a2b3; font-size: 0.71875rem;
+}.item-main[data-v-0237c60a] { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 0.25rem; margin-left: 0.5625rem;
+}.item-name[data-v-0237c60a] { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap;
+}.item-note[data-v-0237c60a] { overflow: hidden; color: #98a2b3; font-size: 0.71875rem; text-overflow: ellipsis; white-space: nowrap;
 }.item-right[data-v-0237c60a] { display: flex; flex-direction: column; align-items: flex-end;
-}.income[data-v-0237c60a] { color: #16a34a;
-}.expense[data-v-0237c60a] { color: #e11d48;
-}.delete[data-v-0237c60a] { margin-left: 0.5rem; color: #98a2b3; font-size: 0.71875rem;
+}.income[data-v-0237c60a] { color: #16a34a; font-variant-numeric: tabular-nums;
+}.expense[data-v-0237c60a] { color: #e11d48; font-variant-numeric: tabular-nums;
+}.delete[data-v-0237c60a] { margin: -0.625rem -0.25rem -0.625rem 0.25rem; padding: 0.625rem 0.25rem; color: #98a2b3; font-size: 0.71875rem;
 }.empty[data-v-0237c60a] { padding: 3.125rem 0.75rem; color: #98a2b3; font-size: 0.8125rem; text-align: center;
+}
+.transaction-item[data-v-0237c60a]:active { background: var(--theme-primary-soft);
+}
+
+/* 主题覆盖：从主题化页面跳入后保持一致观感。 */
+.page[data-v-0237c60a] { background: var(--theme-page-bg) !important;
+}
+.range-card[data-v-0237c60a], .transaction-list[data-v-0237c60a] { background: var(--theme-surface) !important;
+}
+.range-label[data-v-0237c60a], .muted[data-v-0237c60a], .day-date[data-v-0237c60a], .item-note[data-v-0237c60a], .delete[data-v-0237c60a], .empty[data-v-0237c60a] { color: var(--theme-text-muted) !important;
+}
+.range-value[data-v-0237c60a], .list-title[data-v-0237c60a], .day-label[data-v-0237c60a] { color: var(--theme-text) !important;
+}
+.item-name[data-v-0237c60a] { color: var(--theme-text-strong) !important;
+}
+.category-icon-bg[data-v-0237c60a] { background: var(--theme-page-bg) !important; border: 0.03125rem solid var(--theme-border) !important;
+}
+.transaction-item[data-v-0237c60a] { border-color: var(--theme-border) !important;
 }

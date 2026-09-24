@@ -2,7 +2,8 @@ import { reactive } from 'vue'
 import { APP_PROFILE_KEY, APP_REFRESH_TOKEN_KEY, APP_TOKEN_KEY } from '../config'
 
 const parseProfile = () => {
-  const value = uni.getStorageSync(APP_PROFILE_KEY)
+  let value = ''
+  try { value = uni.getStorageSync(APP_PROFILE_KEY) } catch { return null }
   if (!value) return null
   try { return typeof value === 'string' ? JSON.parse(value) : value } catch { return null }
 }
@@ -12,8 +13,8 @@ export const authStore = reactive({
   refreshToken: '',
   profile: null,
   restore() {
-    this.token = uni.getStorageSync(APP_TOKEN_KEY) || ''
-    this.refreshToken = uni.getStorageSync(APP_REFRESH_TOKEN_KEY) || ''
+    try { this.token = uni.getStorageSync(APP_TOKEN_KEY) || '' } catch { this.token = '' }
+    try { this.refreshToken = uni.getStorageSync(APP_REFRESH_TOKEN_KEY) || '' } catch { this.refreshToken = '' }
     this.profile = parseProfile()
   },
   setLogin(token, refreshToken, profile) {

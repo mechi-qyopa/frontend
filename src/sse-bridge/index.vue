@@ -21,7 +21,7 @@ export default {
 <script module="sseBridge" lang="renderjs">
 export default {
   data() {
-    return { lastId: 0, controller: null }
+    return { lastId: 0, controller: null, aborting: false }
   },
   methods: {
     onRequest(newVal, oldVal, ownerInstance) {
@@ -30,13 +30,35 @@ export default {
       try { request = JSON.parse(newVal) } catch (error) { return }
       if (!request || !request.id || request.id === this.lastId) return
       this.lastId = request.id
+      // 负数 id 视为 abort 指令：页面卸载/切走时终止进行中的 fetch，避免空转耗电
+      if (request.abort) {
+        if (this.controller) {
+          this.aborting = true
+          this.controller.abort()
+        }
+        return
+      }
       this.run(request, ownerInstance)
+    },
+    // 非 JSON 响应（如网关 502 HTML）不能整段透传到 toast，截断并优先取后端 message 字段
+    humanizeError(text, status) {
+      const raw = (text || '').trim()
+      if (!raw) return `流式请求失败(${status})`
+      try {
+        const data = JSON.parse(raw)
+        const message = data?.message || data?.error || data?.msg
+        if (message) return String(message)
+      } catch (error) { /* 非 JSON 响应，按原文截断 */ }
+      return raw.length > 60 ? `${raw.slice(0, 60)}…` : raw
     },
     async run(request, ownerInstance) {
       if (this.controller) this.controller.abort()
       const controller = new AbortController()
       this.controller = controller
-      const timeout = setTimeout(() => controller.abort(), 120000)
+      this.aborting = false
+      // 空闲超时：每次收到新数据就重置计时，避免长回复（>2 分钟）被总时长上限误杀
+      let idleTimer = setTimeout(() => controller.abort(), 120000)
+      const resetIdle = () => { clearTimeout(idleTimer); idleTimer = setTimeout(() => controller.abort(), 120000) }
       try {
         const response = await fetch(request.url, {
           method: 'POST',
@@ -49,14 +71,14 @@ export default {
           signal: controller.signal
         })
         if (response.status === 401) {
-          clearTimeout(timeout)
+          clearTimeout(idleTimer)
           ownerInstance.callMethod('onStreamError', 'UNAUTHORIZED')
           return
         }
         if (!response.ok || !response.body) {
           const text = response.body ? await response.text() : ''
-          clearTimeout(timeout)
-          ownerInstance.callMethod('onStreamError', text || `流式请求失败(${response.status})`)
+          clearTimeout(idleTimer)
+          ownerInstance.callMethod('onStreamError', this.humanizeError(text, response.status))
           return
         }
         const reader = response.body.getReader()
@@ -65,15 +87,17 @@ export default {
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
+          resetIdle()
           buffer += decoder.decode(value, { stream: true })
           buffer = this.consume(buffer, ownerInstance)
         }
         buffer += decoder.decode()
         if (buffer.trim()) this.consume(`${buffer}\n\n`, ownerInstance)
-        clearTimeout(timeout)
+        clearTimeout(idleTimer)
         ownerInstance.callMethod('onStreamDone')
       } catch (error) {
-        clearTimeout(timeout)
+        clearTimeout(idleTimer)
+        if (this.aborting) { this.aborting = false; return }
         if (error?.name === 'AbortError') ownerInstance.callMethod('onStreamError', '回复超时，请重试')
         else ownerInstance.callMethod('onStreamError', error?.message || '对话请求失败')
       }

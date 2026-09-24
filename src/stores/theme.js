@@ -36,9 +36,32 @@ export const THEMES = [
   },
   {
     id: 'kitty',
-    name: '小橘猫',
-    description: '软萌橘猫贴贴，治愈系记账',
-    mascot: '/static/kitty-mascot.png',
+    name: '喵喵星球',
+    description: '贴纸猫猫陪伴的治愈记账',
+    // 主吉祥物（默认头像/主题卡），mascots 为各页面专属猫咪贴纸；页面按 mascots 是否存在进入猫咪模式
+    // 素材：用户提供贴纸合集（D:\doc\需求\my\素材），sharp 切格+边缘泛洪去白底（保留猫脸白色）
+    mascot: '/static/kitty-avatar.png',
+    mascots: {
+      avatar: '/static/kitty-avatar.png',        // 苹果猫：汇总卡/主题卡/助手欢迎
+      mini: '/static/kitty-mini.png',            // 橘子猫：流水页周期旁
+      watermelon: '/static/kitty-watermelon.png', // 西瓜猫：流水明细标题旁
+      chat: '/static/kitty-chat.png',            // 信封爱心猫：助手 AI 消息头像
+      smile: '/static/kitty-smile.png',          // 吐司厨师猫：记账页头部
+      empty: '/static/kitty-empty.png',          // 雪糕猫：空状态（流水/统计/分类）
+      footer: '/static/kitty-footer.png',        // 爆米花三猫：流水列表尾部
+      shock: '/static/kitty-shock.png',          // 购物车猫：统计汇总卡
+      smug: '/static/kitty-smug.png',            // 汽车猫：统计页周期旁
+      cake: '/static/kitty-cake.png',            // 生日蛋糕猫：统计页尾部
+      tabcat: '/static/kitty-tabcat.png',        // 甜甜圈猫：tab bar 探头
+      cherry: '/static/kitty-cherry.png',        // 樱桃猫：流水每日装饰/tab 选中指示
+      calendar: '/static/kitty-calendar.png',    // 日历猫：记账日历标题旁
+      milk: '/static/kitty-milk.png',            // 牛奶猫：键盘"今天"键
+      fork: '/static/kitty-fork.png',            // 叉子猫：统计趋势卡标题旁
+      note: '/static/kitty-note.png',            // 笔记本猫：统计占比卡标题旁
+      strawberry: '/static/kitty-strawberry.png', // 草莓猫：助手欢迎三连
+      rice: '/static/kitty-rice.png',             // 饭团猫：助手欢迎三连
+      peach: '/static/kitty-peach.png'            // 桃子猫：助手欢迎三连
+    },
     icons: { tab: ['order', 'integral', 'chat', 'heart'] },
     shape: { card: '36rpx', control: '24rpx' },
     colors: { primary: '#f59e42', primaryEnd: '#fcc675', primarySoft: '#fdf3e2', primaryShadow: 'rgba(245, 158, 66, .26)', pageBackground: '#fdf8ef', surface: '#ffffff', text: '#3d2c1e', textStrong: '#5c4530', textSecondary: '#8a7460', textMuted: '#b5a18c', border: '#f1e6d4', chart: ['#f59e42', '#fcc675', '#feddab', '#d98a3f', '#b9743a', '#8f5a2e'], tabInactive: '#a99a87' }
@@ -153,7 +176,7 @@ function applyStatusBar(theme) {
         }
       }
     } catch (error) {
-      console.log('[theme] setStatusBarStyle failed:', error)
+      console.log('[theme] decorView status bar update failed:', error)
     }
   } else {
     try { plus.navigator.setStatusBarStyle(isDark ? 'light' : 'dark') } catch { /* 平台不支持时忽略 */ }
@@ -188,7 +211,8 @@ export const themeStore = reactive({
     return cssVariables(this.currentTheme)
   },
   restore() {
-    const storedId = uni.getStorageSync(APP_THEME_KEY)
+    let storedId = ''
+    try { storedId = uni.getStorageSync(APP_THEME_KEY) } catch { /* 存储损坏时回退默认主题 */ }
     this.id = resolveTheme(storedId).id
     applyDocumentTheme(this.currentTheme)
     applyNativeTheme(this.currentTheme)
@@ -196,7 +220,7 @@ export const themeStore = reactive({
   setTheme(id) {
     const theme = resolveTheme(id)
     this.id = theme.id
-    uni.setStorageSync(APP_THEME_KEY, theme.id)
+    try { uni.setStorageSync(APP_THEME_KEY, theme.id) } catch { /* 持久化失败不影响当前会话 */ }
     applyDocumentTheme(theme)
     applyNativeTheme(theme)
   },

@@ -1,5 +1,5 @@
 <template>
-  <view class="page">
+  <view :class="['page', `theme-${themeStore.id}`]" :style="themeStore.pageStyle">
     <view v-if="!valid" class="empty">页面参数无效</view>
     <template v-else>
       <view class="range-card"><text class="range-label">统计区间</text><text class="range-value">{{ startDate }} 至 {{ endDate }}</text></view>
@@ -15,9 +15,10 @@
 import { computed, ref } from 'vue'
 import { onLoad, onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
-import { formatAmount } from '../../utils/date'
+import { formatAmount, formatDayLabel } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
 import { buildCategoryMap, categoryIcon, resolveCategory } from '../../utils/category-icon'
+import { themeStore } from '../../stores/theme'
 
 const categorySource = ref('')
 const categoryId = ref('')
@@ -30,7 +31,6 @@ const transactions = ref([])
 const loading = ref(false)
 let requestId = 0
 
-const weekdayLabels = ['日', '一', '二', '三', '四', '五', '六']
 const categoryMap = computed(() => buildCategoryMap(categories.value))
 const transactionGroups = computed(() => {
   const groups = new Map()
@@ -82,12 +82,6 @@ async function load() {
 }
 
 function safeDecode(value) { try { return value ? decodeURIComponent(value) : '' } catch { return value } }
-function formatDayLabel(dateString) {
-  const year = Number(dateString.slice(0, 4))
-  const month = Number(dateString.slice(5, 7)) - 1
-  const day = Number(dateString.slice(8, 10))
-  return `${month + 1}月${day}日 星期${weekdayLabels[new Date(year, month, day).getDay()]}`
-}
 function resolveCategoryName(item) {
   const cat = resolveCategory(item, categoryMap.value)
   return cat?.name || '分类已停用或删除'
@@ -120,5 +114,15 @@ function remove(item) {
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding-top: 24rpx; background: #f5f7fb; box-sizing: border-box; }.range-card { display: flex; align-items: center; justify-content: space-between; margin: 0 24rpx; padding: 24rpx 28rpx; border-radius: 22rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36,58,99,.05); }.range-label { color: #667085; font-size: 26rpx; }.range-value { color: #1d2939; font-size: 25rpx; font-weight: 600; }.list-title { padding: 36rpx 28rpx 16rpx; color: #344054; font-size: 30rpx; font-weight: 600; }.list-title .muted { margin-left: 10rpx; font-size: 24rpx; font-weight: 400; }.day-groups { padding-bottom: calc(48rpx + var(--window-bottom) + env(safe-area-inset-bottom)); }.day-group { margin: 0 24rpx 28rpx; }.day-header { display: flex; align-items: center; justify-content: space-between; padding: 4rpx 4rpx 14rpx; }.day-label { color: #344054; font-size: 27rpx; font-weight: 600; }.day-date { color: #98a2b3; font-size: 23rpx; }.transaction-list { overflow: hidden; border-radius: 24rpx; background: #fff; }.transaction-item { display: flex; align-items: center; min-height: 126rpx; padding: 0 22rpx; border-bottom: 1rpx solid #f0f2f5; }.transaction-item:last-child { border: 0; }.icon { position: relative; display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; border-radius: 50%; overflow: hidden; box-sizing: border-box; }.category-icon-bg { background: #f2f4f7; }.icon-image { position: absolute; inset: 0; width: 100%; height: 100%; }.icon-emoji { font-size: 36rpx; line-height: 1; filter: saturate(.9); }.item-main { display: flex; flex: 1; flex-direction: column; gap: 8rpx; margin-left: 18rpx; }.item-name { font-weight: 500; }.item-note { color: #98a2b3; font-size: 23rpx; }.item-right { display: flex; flex-direction: column; align-items: flex-end; }.income { color: #16a34a; }.expense { color: #e11d48; }.delete { margin-left: 16rpx; color: #98a2b3; font-size: 23rpx; }.empty { padding: 100rpx 24rpx; color: #98a2b3; font-size: 26rpx; text-align: center; }
+.page { min-height: 100vh; padding-top: 24rpx; background: #f5f7fb; box-sizing: border-box; }.range-card { display: flex; align-items: center; justify-content: space-between; margin: 0 24rpx; padding: 24rpx 28rpx; border-radius: 22rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36,58,99,.05); }.range-label { color: #667085; font-size: 26rpx; }.range-value { color: #1d2939; font-size: 25rpx; font-weight: 600; }.list-title { padding: 36rpx 28rpx 16rpx; color: #344054; font-size: 30rpx; font-weight: 600; }.list-title .muted { margin-left: 10rpx; font-size: 24rpx; font-weight: 400; }.day-groups { padding-bottom: calc(48rpx + var(--window-bottom) + env(safe-area-inset-bottom)); }.day-group { margin: 0 24rpx 28rpx; }.day-header { display: flex; align-items: center; justify-content: space-between; padding: 4rpx 4rpx 14rpx; }.day-label { color: #344054; font-size: 27rpx; font-weight: 600; }.day-date { color: #98a2b3; font-size: 23rpx; }.transaction-list { overflow: hidden; border-radius: 24rpx; background: #fff; }.transaction-item { display: flex; align-items: center; min-height: 126rpx; padding: 0 22rpx; border-bottom: 1rpx solid #f0f2f5; }.transaction-item:last-child { border: 0; }.icon { position: relative; display: flex; align-items: center; justify-content: center; width: 64rpx; height: 64rpx; border-radius: 50%; overflow: hidden; box-sizing: border-box; }.category-icon-bg { background: #f2f4f7; }.icon-image { position: absolute; inset: 0; width: 100%; height: 100%; }.icon-emoji { font-size: 36rpx; line-height: 1; filter: saturate(.9); }.item-main { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 8rpx; margin-left: 18rpx; }.item-name { overflow: hidden; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }.item-note { overflow: hidden; color: #98a2b3; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }.item-right { display: flex; flex-direction: column; align-items: flex-end; }.income { color: #16a34a; font-variant-numeric: tabular-nums; }.expense { color: #e11d48; font-variant-numeric: tabular-nums; }.delete { margin: -20rpx -8rpx -20rpx 8rpx; padding: 20rpx 8rpx; color: #98a2b3; font-size: 23rpx; }.empty { padding: 100rpx 24rpx; color: #98a2b3; font-size: 26rpx; text-align: center; }
+.transaction-item:active { background: var(--theme-primary-soft); }
+
+/* 主题覆盖：从主题化页面跳入后保持一致观感。 */
+.page { background: var(--theme-page-bg) !important; }
+.range-card, .transaction-list { background: var(--theme-surface) !important; }
+.range-label, .muted, .day-date, .item-note, .delete, .empty { color: var(--theme-text-muted) !important; }
+.range-value, .list-title, .day-label { color: var(--theme-text) !important; }
+.item-name { color: var(--theme-text-strong) !important; }
+.category-icon-bg { background: var(--theme-page-bg) !important; border: 1rpx solid var(--theme-border) !important; }
+.transaction-item { border-color: var(--theme-border) !important; }
 </style>

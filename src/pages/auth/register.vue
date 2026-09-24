@@ -2,10 +2,10 @@
   <view class="auth-page">
     <view class="hero"><text class="brand">创建账号</text><text class="subtitle">开始你的轻松记账之旅</text></view>
     <view class="form-card">
-      <input v-model.trim="form.username" class="input" placeholder="用户名（3-32 位字母、数字或下划线）" maxlength="32" />
-      <input v-model="form.phone" class="input form-space" type="number" placeholder="手机号" maxlength="11" />
-      <input v-model="form.password" class="input form-space" placeholder="密码（至少 8 位）" password maxlength="72" />
-      <input v-model="confirmPassword" class="input form-space" placeholder="确认密码" password maxlength="72" />
+      <input v-model.trim="form.username" class="input" placeholder="用户名（3-32 位字母、数字或下划线）" maxlength="32" confirm-type="next" />
+      <input v-model="form.phone" class="input form-space" type="number" placeholder="手机号" maxlength="11" confirm-type="next" />
+      <input v-model="form.password" class="input form-space" placeholder="密码（至少 8 位）" password maxlength="72" confirm-type="next" />
+      <input v-model="confirmPassword" class="input form-space" placeholder="确认密码" password maxlength="72" confirm-type="go" @confirm="submit" />
       <button class="primary-button submit" :loading="submitting" @click="submit">注册</button>
       <view class="footer-text">已有账号？<text class="link" @click="goLogin">返回登录</text></view>
     </view>
@@ -50,5 +50,6 @@ function goLogin() { uni.navigateBack() }
 .form-space { margin-top: 22rpx; }
 .submit { margin-top: 42rpx; height: 92rpx; line-height: 92rpx; }
 .footer-text { margin-top: 38rpx; color: #7c8799; font-size: 26rpx; text-align: center; }
-.link { color: #1677ff; }
+.link { padding: 10rpx 4rpx; color: #1677ff; }
+.link:active { opacity: .6; }
 </style>
