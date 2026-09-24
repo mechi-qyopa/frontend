@@ -35,6 +35,15 @@ export const THEMES = [
     colors: { primary: '#e85d8c', primaryEnd: '#f28bb0', primarySoft: '#fff0f5', primaryShadow: 'rgba(232, 93, 140, .26)', pageBackground: '#fff7fa', surface: '#ffffff', text: '#3b202b', textStrong: '#5b3141', textSecondary: '#8a6572', textMuted: '#b395a0', border: '#f6e3ea', chart: ['#e85d8c', '#f28bb0', '#f5acc5', '#ef78a2', '#f8c6d8', '#fbe0e9'], tabInactive: '#a48b95' }
   },
   {
+    id: 'kitty',
+    name: '小橘猫',
+    description: '软萌橘猫贴贴，治愈系记账',
+    mascot: '/static/kitty-mascot.png',
+    icons: { tab: ['order', 'integral', 'chat', 'heart'] },
+    shape: { card: '36rpx', control: '24rpx' },
+    colors: { primary: '#f59e42', primaryEnd: '#fcc675', primarySoft: '#fdf3e2', primaryShadow: 'rgba(245, 158, 66, .26)', pageBackground: '#fdf8ef', surface: '#ffffff', text: '#3d2c1e', textStrong: '#5c4530', textSecondary: '#8a7460', textMuted: '#b5a18c', border: '#f1e6d4', chart: ['#f59e42', '#fcc675', '#feddab', '#d98a3f', '#b9743a', '#8f5a2e'], tabInactive: '#a99a87' }
+  },
+  {
     id: 'violet',
     name: '夜幕紫',
     description: '克制、沉稳的深色界面',
@@ -62,6 +71,7 @@ const TAB_ACTIVE_ICON_FILTERS = {
   forest: 'hue-rotate(-53deg) saturate(.82) brightness(.61)',
   sunset: 'hue-rotate(168deg) saturate(.79) brightness(.94)',
   blossom: 'hue-rotate(128deg) saturate(.65) brightness(.91)',
+  kitty: 'hue-rotate(183deg) saturate(.8) brightness(.96)',
   violet: 'hue-rotate(46deg) saturate(.75) brightness(1.28)',
   obsidian: 'hue-rotate(-170deg) saturate(.6) brightness(1.06)'
 }

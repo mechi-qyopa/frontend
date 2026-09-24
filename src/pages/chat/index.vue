@@ -19,7 +19,7 @@
       </view>
 
       <view v-for="(item, index) in messages" :id="`message-${index}`" :key="`${item.id || index}-${item.createdAt || ''}`" :class="['message-row', isUserMessage(item) ? 'user-row' : 'assistant-row']">
-        <view v-if="!isUserMessage(item)" class="message-avatar assistant-avatar">AI</view>
+        <view v-if="!isUserMessage(item)" class="message-avatar assistant-avatar"><image v-if="themeStore.currentTheme.mascot" class="avatar-mascot" :src="themeStore.currentTheme.mascot" mode="aspectFit" /><text v-else>AI</text></view>
         <view class="message-content">
           <view :class="['message', isUserMessage(item) ? 'user' : 'assistant']"><text>{{ item.content }}</text><text v-if="item.streaming" class="typing-cursor">▍</text></view>
         </view>
@@ -274,6 +274,7 @@ function onStreamError(message) {
 .messages { flex: 1; min-height: 0; padding: 32rpx 24rpx 24rpx; box-sizing: border-box; }
 .welcome { display: flex; flex-direction: column; align-items: center; margin: 116rpx 20rpx; color: #667085; text-align: center; line-height: 1.8; }
 .welcome-avatar,.message-avatar { display: flex; align-items: center; justify-content: center; flex-shrink: 0; overflow: hidden; border-radius: 50%; font-weight: 700; }
+.avatar-mascot { width: 100%; height: 100%; }
 .welcome-avatar { width: 104rpx; height: 104rpx; margin-bottom: 22rpx; color: #fff; background: linear-gradient(135deg, #1677ff, #76aeff); box-shadow: 0 10rpx 24rpx rgba(22, 119, 255, .2); font-size: 34rpx; }
 .welcome-title { display: block; margin-bottom: 10rpx; color: #344054; font-size: 36rpx; font-weight: 600; }
 .welcome-description { color: #667085; font-size: 27rpx; }

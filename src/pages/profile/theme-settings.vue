@@ -54,6 +54,7 @@ function selectTheme(id) {
 .current-theme-label,.current-theme-name { display: block; }
 .current-theme-label { color: rgba(255,255,255,.76); font-size: 22rpx; }
 .current-theme-name { margin-top: 5rpx; font-size: 31rpx; font-weight: 600; }
+.current-theme-mascot { width: 92rpx; height: 92rpx; margin-left: auto; }
 .theme-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20rpx; }
 .theme-option { overflow: hidden; border: 3rpx solid transparent; border-radius: var(--theme-radius-card, 24rpx); background: var(--theme-surface); box-shadow: 0 8rpx 24rpx rgba(36, 58, 99, .06); box-sizing: border-box; }
 .theme-option.selected { border-color: var(--theme-primary); box-shadow: 0 10rpx 26rpx var(--theme-primary-shadow); }

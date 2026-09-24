@@ -3,7 +3,8 @@
     <view class="book-header">
       <view class="back-button" @click="goBack" />
       <view class="book-title"><text>{{ editingId ? '编辑流水' : '默认账本' }}</text><text class="book-subtitle">{{ editingId ? '修改金额、备注或分类' : '记录每一笔收支' }}</text></view>
-      <view class="book-icon">📋</view>
+      <image v-if="themeStore.currentTheme.mascot" class="book-icon-image" :src="themeStore.currentTheme.mascot" mode="aspectFit" />
+      <view v-else class="book-icon">📋</view>
     </view>
 
     <view class="type-switch">
@@ -202,6 +203,7 @@ async function submit() {
 .book-title { display: flex; flex: 1; flex-direction: column; align-items: flex-end; color: #1d2939; font-size: 29rpx; font-weight: 700; }
 .book-subtitle { margin-top: 5rpx; color: #98a2b3; font-size: 20rpx; font-weight: 400; }
 .book-icon { display: flex; align-items: center; justify-content: center; width: 48rpx; height: 48rpx; margin-left: 15rpx; font-size: 38rpx; line-height: 1; }
+.book-icon-image { width: 48rpx; height: 48rpx; margin-left: 15rpx; }
 .type-switch { display: flex; gap: 0; margin: 0 24rpx 24rpx; overflow: hidden; border-radius: 20rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }
 .type { position: relative; flex: 1; padding: 22rpx 0; color: #667085; font-size: 30rpx; text-align: center; }
 .type.active-expense, .type.active-income { color: #1677ff; background: #eff6ff; }
