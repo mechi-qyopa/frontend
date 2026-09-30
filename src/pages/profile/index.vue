@@ -19,6 +19,7 @@
     <view class="card category-entry press" @click="goProfileInfo"><view><text class="entry-title">个人信息</text><text class="entry-subtitle">查看与修改头像、用户名、手机号</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry press" @click="goAccountSecurity"><view><text class="entry-title">账号安全</text><text class="entry-subtitle">修改密码、绑定邮箱</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry press" @click="goCategories"><view><text class="entry-title">分类管理</text><text class="entry-subtitle">管理收入与支出分类</text></view><text class="entry-arrow">›</text></view>
+    <view class="card category-entry press" @click="goMonthlyReport"><view><text class="entry-title">月度账单</text><text class="entry-subtitle">查看 AI 生成的月度消费报告</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry theme-entry press" @click="goThemeSettings"><view><text class="entry-title">主题外观</text><text class="entry-subtitle">当前使用：{{ themeStore.currentTheme.name }}</text></view><view class="entry-right"><text class="theme-current">已启用</text><text class="entry-arrow">›</text></view></view>
 
     <view v-if="avatarDialogVisible" class="avatar-mask" @click.self="closeAvatarDialog">
@@ -90,6 +91,7 @@ function goAccountSecurity() { uni.navigateTo({ url: '/pages/profile/account-sec
 function openAvatarDialog() { previewFailed.value = false; avatarDialogVisible.value = true }
 function closeAvatarDialog() { avatarDialogVisible.value = false }
 function goCategories() { uni.navigateTo({ url: '/pages/ledger/categories' }) }
+function goMonthlyReport() { uni.navigateTo({ url: '/pages/ledger/monthly-report' }) }
 function chooseImage() { return new Promise((resolve, reject) => uni.chooseImage({ count: 1, sizeType: ['compressed'], sourceType: ['album', 'camera'], success: ({ tempFilePaths }) => resolve(tempFilePaths[0]), fail: reject })) }
 function getImageInfo(src) { return new Promise((resolve, reject) => uni.getImageInfo({ src, success: resolve, fail: reject })) }
 async function startAvatarChange() { if (uploading.value || cropping.value) return; avatarDialogVisible.value = false; try { const filePath = await chooseImage(); const info = await getImageInfo(filePath); cropSource.value = filePath; sourceWidth.value = info.width; sourceHeight.value = info.height; cropSize.value = Math.round(uni.getWindowInfo().windowWidth * CROP_WINDOW_RATIO); baseScale.value = Math.max(cropSize.value / info.width, cropSize.value / info.height); zoom.value = 1; offsetX.value = 0; offsetY.value = 0; cropping.value = true } catch (error) { if (!String(error?.errMsg || error?.message || '').includes('cancel')) showRequestError(error) } }

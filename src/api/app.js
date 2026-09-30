@@ -215,6 +215,13 @@ export const appApi = {
   updateCategory: (id, data) => request({ url: `/api/v1/app/bookkeeping/categories/${id}`, method: 'PATCH', data, unwrapResult: true }),
   deleteCategory: (id) => request({ url: `/api/v1/app/bookkeeping/categories/${id}`, method: 'DELETE', unwrapResult: true }),
 
+  listBudgets: () => request({ url: '/api/v1/app/bookkeeping/budgets', unwrapResult: true }),
+  saveBudget: (data) => request({ url: '/api/v1/app/bookkeeping/budgets', method: 'POST', data, unwrapResult: true }),
+  deleteBudget: (id) => request({ url: `/api/v1/app/bookkeeping/budgets/${id}`, method: 'DELETE', unwrapResult: true }),
+
+  listMonthlyReports: () => request({ url: '/api/v1/app/bookkeeping/reports', unwrapResult: true }),
+  getMonthlyReport: (id) => request({ url: `/api/v1/app/bookkeeping/reports/${id}`, unwrapResult: true }),
+
   listTransactions: (range) => request({ url: '/api/v1/app/bookkeeping/transactions', data: range, unwrapResult: true }),
   getTransaction: (id) => request({ url: `/api/v1/app/bookkeeping/transactions/${id}`, unwrapResult: true }),
   getSummary: (range) => request({ url: '/api/v1/app/bookkeeping/transactions/summary', data: range, unwrapResult: true }),

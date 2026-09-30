@@ -13,9 +13,16 @@
     </view>
 
     <view class="hero summary-card">
-      <view class="summary-main"><text class="summary-label">区间总支出</text><view class="summary-amount-row"><text class="summary-currency">¥</text><text class="summary-amount">{{ formatAmount(expenseTotal) }}</text></view></view>
-      <view class="summary-side"><text>{{ trendUnitLabel }}均支出</text><text>¥ {{ formatAmount(averageExpense) }}</text></view>
-      <image v-if="mascots" class="summary-avatar" :src="mascots.shock" mode="aspectFit" />
+      <view class="hero-top">
+        <view class="summary-main"><text class="summary-label">区间总支出</text><view class="summary-amount-row"><text class="summary-currency">¥</text><text class="summary-amount">{{ formatAmount(expenseTotal) }}</text></view></view>
+        <view class="summary-side"><text>{{ trendUnitLabel }}均支出</text><text>¥ {{ formatAmount(averageExpense) }}</text></view>
+        <image v-if="mascots" class="summary-avatar" :src="mascots.shock" mode="aspectFit" />
+      </view>
+      <view v-if="periodType === 'MONTH' && monthBudget" class="budget-progress press" role="button" aria-label="查看预算" @click="goBudget">
+        <view class="budget-texts"><text>预算 ¥{{ formatAmount(monthBudget.amount) }}</text><text :class="{ over: monthBudget.usagePercent > 100 }">已用 {{ monthBudget.usagePercent }}%</text></view>
+        <view class="budget-track"><view class="budget-fill" :class="monthBudget.usagePercent > 100 ? 'over' : monthBudget.usagePercent >= 80 ? 'warn' : ''" :style="{ width: `${Math.min(100, monthBudget.usagePercent)}%` }" /></view>
+      </view>
+      <view v-else-if="periodType === 'MONTH' && !budgetLoading" class="budget-empty press" role="button" aria-label="设置预算" @click="goBudget"><text>本月还没设预算，去设置 ›</text></view>
     </view>
 
     <view class="card trend-card">
@@ -68,6 +75,22 @@ import { themeStore } from '../../stores/theme'
 import CustomTabBar from '../../custom-tab-bar/index.vue'
 
 const range = reactive(monthRange())
+const budgets = ref([])
+const budgetLoading = ref(false)
+const monthBudget = computed(() => (periodType.value === 'MONTH'
+  ? budgets.value.find((budget) => budget.budgetMonth === range.startDate.slice(0, 7)) || null
+  : null))
+async function loadBudgets() {
+  budgetLoading.value = true
+  try {
+    budgets.value = await appApi.listBudgets()
+  } catch {
+    // 预算加载失败不打扰统计主视图
+  } finally {
+    budgetLoading.value = false
+  }
+}
+function goBudget() { uni.navigateTo({ url: '/pages/ledger/budget' }) }
 // 猫咪主题：mascots 存在即进入猫咪模式
 const mascots = computed(() => themeStore.currentTheme.mascots || null)
 const periodType = ref('MONTH')
@@ -168,7 +191,7 @@ const pieChartStyle = computed(() => {
   return { backgroundImage: `conic-gradient(${segments.join(', ')})` }
 })
 
-onShow(load)
+onShow(() => { load(); loadBudgets() })
 onReady(measureTrendPlot)
 // 数据渲染后实测 .trend-plot 尺寸，修正按屏宽比例估算的兜底值
 function measureTrendPlot() {
@@ -356,16 +379,25 @@ function pieColor(index) { return pieColors.value[index % pieColors.value.length
 .range-divider { color: var(--theme-text-muted); font-size: var(--font-caption); }
 
 /* 汇总 Hero：区间总支出为主角，均值副信息靠右 */
-.summary-card { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; padding: 30rpx 32rpx; border-radius: calc(var(--theme-radius-card) + 10rpx); box-shadow: var(--elev-3); }
+.summary-card { display: block; margin-bottom: 24rpx; padding: 30rpx 32rpx; border-radius: calc(var(--theme-radius-card) + 10rpx); box-shadow: var(--elev-3); }
+.hero-top { display: flex; align-items: center; justify-content: space-between; }
 .summary-label { display: block; color: rgba(255, 255, 255, .72); font-size: var(--font-caption); }
 .summary-amount-row { display: flex; align-items: baseline; gap: 6rpx; margin-top: 12rpx; }
 .summary-currency { color: rgba(255, 255, 255, .85); font-size: 28rpx; font-weight: 500; }
 .summary-amount { font-size: 48rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
-.summary-side { text-align: right; }
+.summary-side { flex-shrink: 0; margin-left: 24rpx; text-align: right; white-space: nowrap; }
 .summary-side text { display: block; }
 .summary-side text:first-child { color: rgba(255, 255, 255, .72); font-size: var(--font-caption); }
 .summary-side text:last-child { margin-top: 12rpx; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
 .summary-avatar { width: 88rpx; height: 88rpx; margin-left: 8rpx; padding: 8rpx; box-sizing: border-box; border-radius: 50%; background: rgba(255, 255, 255, .92); flex-shrink: 0; box-shadow: 0 4rpx 14rpx rgba(93, 58, 21, .2); }
+.budget-progress { width: 100%; margin-top: 20rpx; }
+.budget-texts { display: flex; justify-content: space-between; margin-bottom: 10rpx; color: rgba(255, 255, 255, .92); font-size: 22rpx; }
+.budget-texts .over { color: #ffd9d9; font-weight: 600; }
+.budget-track { height: 12rpx; border-radius: 999rpx; background: rgba(255, 255, 255, .28); overflow: hidden; }
+.budget-fill { height: 100%; border-radius: 999rpx; background: #fff; transition: width .3s ease; }
+.budget-fill.warn { background: #fbbf24; }
+.budget-fill.over { background: #fecaca; }
+.budget-empty { width: 100%; margin-top: 20rpx; padding: 14rpx 0; border-radius: 999rpx; background: rgba(255, 255, 255, .18); color: rgba(255, 255, 255, .92); font-size: 22rpx; text-align: center; }
 
 /* 卡片头 */
 .card-header { display: flex; align-items: flex-start; justify-content: space-between; }
