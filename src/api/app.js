@@ -199,142 +199,16 @@ function uploadImage(filePath, retried = false) {
   })
 }
 
-function excelDownloadName() {
-  const now = new Date()
-  const pad = (value) => String(value).padStart(2, '0')
-  return `账单导出_${now.getFullYear()}${pad(now.getMonth() + 1)}${pad(now.getDate())}_${pad(now.getHours())}${pad(now.getMinutes())}.xlsx`
-}
-
-function exportTransactions(retried = false) {
-  const url = `${API_BASE_URL}/api/v1/app/bookkeeping/transactions/export`
-  // #ifdef H5
-  return new Promise((resolve, reject) => {
-    uni.request({
-      url,
-      header: { Accept: 'application/octet-stream', ...(authStore.token ? { 'X-App-Token': authStore.token } : {}) },
-      responseType: 'arraybuffer',
-      success: ({ statusCode, data }) => {
-        if (statusCode === 401 && !retried) {
-          refreshAccessToken()
-            .then(() => exportTransactions(true))
-            .then(resolve)
-            .catch((error) => {
-              redirectToLogin()
-              reject(error)
-            })
-          return
-        }
-        if (statusCode === 401) {
-          redirectToLogin()
-          reject(new Error('登录已过期，请重新登录'))
-          return
-        }
-        if (statusCode < 200 || statusCode >= 300 || !data) {
-          reject(new Error('导出失败，请稍后重试'))
-          return
-        }
-        try {
-          const blob = new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
-          const link = document.createElement('a')
-          link.href = URL.createObjectURL(blob)
-          link.download = excelDownloadName()
-          document.body.appendChild(link)
-          link.click()
-          document.body.removeChild(link)
-          URL.revokeObjectURL(link.href)
-          resolve()
-        } catch {
-          reject(new Error('导出失败，请稍后重试'))
-        }
-      },
-      fail: () => reject(new Error('导出失败，请检查网络连接'))
-    })
-  })
-  // #endif
-  // #ifndef H5
-  return new Promise((resolve, reject) => {
-    uni.downloadFile({
-      url,
-      header: authStore.token ? { 'X-App-Token': authStore.token } : {},
-      success: ({ statusCode, tempFilePath }) => {
-        if (statusCode === 401 && !retried) {
-          refreshAccessToken()
-            .then(() => exportTransactions(true))
-            .then(resolve)
-            .catch((error) => {
-              redirectToLogin()
-              reject(error)
-            })
-          return
-        }
-        if (statusCode === 401) {
-          redirectToLogin()
-          reject(new Error('登录已过期，请重新登录'))
-          return
-        }
-        if (statusCode !== 200) {
-          reject(new Error('导出失败，请稍后重试'))
-          return
-        }
-        uni.openDocument({
-          filePath: tempFilePath,
-          fileType: 'xlsx',
-          showMenu: true,
-          success: resolve,
-          fail: () => reject(new Error('未找到可打开 Excel 文件的应用'))
-        })
-      },
-      fail: () => reject(new Error('导出失败，请检查网络连接'))
-    })
-  })
-  // #endif
-}
-
-function importTransactions(filePath, retried = false) {
-  return new Promise((resolve, reject) => {
-    uni.uploadFile({
-      url: `${API_BASE_URL}/api/v1/app/bookkeeping/transactions/import`,
-      filePath,
-      name: 'file',
-      header: {
-        Accept: 'application/json',
-        ...(authStore.token ? { 'X-App-Token': authStore.token } : {})
-      },
-      success: ({ statusCode, data }) => {
-        let body
-        try { body = typeof data === 'string' ? JSON.parse(data) : data } catch { body = null }
-        if (statusCode === 401 && !retried) {
-          refreshAccessToken()
-            .then(() => importTransactions(filePath, true))
-            .then(resolve)
-            .catch((error) => {
-              redirectToLogin()
-              reject(error)
-            })
-          return
-        }
-        if (statusCode === 401) {
-          redirectToLogin()
-          reject(new Error('登录已过期，请重新登录'))
-          return
-        }
-        if (statusCode < 200 || statusCode >= 300 || !body || body.code !== 0) {
-          reject(new Error(body?.msg || '导入失败，请稍后重试'))
-          return
-        }
-        resolve(body.data)
-      },
-      fail: () => reject(new Error('导入失败，请检查网络连接'))
-    })
-  })
-}
-
 export const appApi = {
-  register: (data) => request({ url: '/api/v1/app/register', method: 'POST', data }),
   login: (data) => request({ url: '/api/v1/app/login', method: 'POST', data, retryOnUnauthorized: false }),
   logout: () => request({ url: '/api/v1/app/logout', method: 'POST' }),
   getMe: () => request({ url: '/api/v1/app/me' }),
   updateMe: (data) => request({ url: '/api/v1/app/me', method: 'PATCH', data }),
+  sendEmailCode: (data) => request({ url: '/api/v1/app/email/verification-codes', method: 'POST', data, retryOnUnauthorized: false }),
+  registerByEmail: (data) => request({ url: '/api/v1/app/register/email', method: 'POST', data, retryOnUnauthorized: false }),
+  verifyResetEmail: (data) => request({ url: '/api/v1/app/password/verify', method: 'POST', data, retryOnUnauthorized: false }),
+  resetPassword: (data) => request({ url: '/api/v1/app/password/reset', method: 'POST', data, retryOnUnauthorized: false }),
+  changePassword: (data) => request({ url: '/api/v1/app/me/password', method: 'PATCH', data }),
 
   listCategories: () => request({ url: '/api/v1/app/bookkeeping/categories', unwrapResult: true }),
   createCategory: (data) => request({ url: '/api/v1/app/bookkeeping/categories', method: 'POST', data, unwrapResult: true }),
@@ -354,7 +228,10 @@ export const appApi = {
   listChatConversations: () => request({ url: '/api/v1/app/chat/conversations' }),
   chatHistory: (sessionId) => request({ url: '/api/v1/app/chat/history', data: { sessionId} }),
   uploadImage,
-  exportTransactions,
-  importTransactions,
+  sendBindEmailCode: (data) => request({ url: '/api/v1/app/me/email/verification-codes', method: 'POST', data }),
+  sendOldEmailCode: () => request({ url: '/api/v1/app/me/email/old-email/verification-codes', method: 'POST' }),
+  verifyOldEmail: (data) => request({ url: '/api/v1/app/me/email/old-email/verify', method: 'POST', data }),
+  bindEmail: (data) => request({ url: '/api/v1/app/me/email', method: 'POST', data }),
+  sendChangePasswordCode: () => request({ url: '/api/v1/app/me/password/verification-codes', method: 'POST' }),
   listCommands: () => request({ url: '/api/v1/app/command/list' })
 }

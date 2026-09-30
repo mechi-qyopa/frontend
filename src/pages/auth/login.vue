@@ -4,9 +4,10 @@
       <view class="hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
       <view class="form-card">
         <text class="title">欢迎回来</text>
-        <input v-model.trim="form.username" class="input" placeholder="用户名" maxlength="32" confirm-type="next" />
+        <input v-model.trim="form.account" class="input" placeholder="用户名 / 手机号 / 邮箱" maxlength="255" confirm-type="next" />
         <input v-model="form.password" class="input form-space" placeholder="密码" password maxlength="72" confirm-type="go" @confirm="submit" />
         <button class="primary-button submit" :loading="submitting" @click="submit">登录</button>
+        <view class="footer-text"><text class="link" @click="goForgotPassword">忘记密码？</text></view>
         <view class="footer-text">还没有账号？<text class="link" @click="goRegister">立即注册</text></view>
       </view>
     </template>
@@ -20,7 +21,7 @@ import { appApi } from '../../api/app'
 import { authStore } from '../../stores/auth'
 import { showRequestError } from '../../utils/request'
 
-const form = reactive({ username: '', password: '' })
+const form = reactive({ account: '', password: '' })
 const submitting = ref(false)
 const loginReady = ref(false)
 
@@ -33,10 +34,10 @@ onShow(() => {
 })
 
 async function submit() {
-  if (!form.username || !form.password) return uni.showToast({ title: '请输入用户名和密码', icon: 'none' })
+  if (!form.account || !form.password) return uni.showToast({ title: '请输入登录账号和密码', icon: 'none' })
   submitting.value = true
   try {
-    const result = await appApi.login(form)
+    const result = await appApi.login({ account: form.account, password: form.password })
     authStore.setLogin(result.token, result.refreshToken, result.user)
     uni.switchTab({ url: '/pages/ledger/index' })
   } catch (error) {
@@ -47,6 +48,7 @@ async function submit() {
 }
 
 function goRegister() { uni.navigateTo({ url: '/pages/auth/register' }) }
+function goForgotPassword() { uni.navigateTo({ url: '/pages/auth/forgot-password' }) }
 </script>
 
 <style scoped>
@@ -58,7 +60,8 @@ function goRegister() { uni.navigateTo({ url: '/pages/auth/register' }) }
 .title { display: block; margin-bottom: 40rpx; color: #1d2939; font-size: 42rpx; font-weight: 600; }
 .form-space { margin-top: 24rpx; }
 .submit { margin-top: 42rpx; height: 92rpx; line-height: 92rpx; }
-.footer-text { margin-top: 38rpx; color: #7c8799; font-size: 26rpx; text-align: center; }
+.footer-text { margin-top: 26rpx; color: #7c8799; font-size: 26rpx; text-align: center; }
+.footer-text:first-of-type { margin-top: 38rpx; }
 .link { padding: 10rpx 4rpx; color: #1677ff; }
 .link:active { opacity: .6; }
 </style>

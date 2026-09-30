@@ -58,19 +58,20 @@ export function request({ url, method = 'GET', data, unwrapResult = false, heade
         ...header
       },
       success: ({ statusCode, data: body }) => {
-        if (statusCode === 401 && retryOnUnauthorized) {
-          refreshAccessToken()
-            .then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized: false }))
-            .then(resolve)
-            .catch((error) => {
-              redirectToLogin()
-              reject(error)
-            })
-          return
-        }
         if (statusCode === 401) {
-          redirectToLogin()
-          reject(new Error('登录已过期，请重新登录'))
+          // retryOnUnauthorized=false 用于公开端点（登录/发码/注册/重置密码）：
+          // 这类 401 不是会话失效，不触发刷新重试，也不能把用户踢回登录页。
+          if (retryOnUnauthorized) {
+            refreshAccessToken()
+              .then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized: false }))
+              .then(resolve)
+              .catch((error) => {
+                redirectToLogin()
+                reject(error)
+              })
+            return
+          }
+          reject(new Error(body?.msg || body?.message || '请求失败'))
           return
         }
         if (statusCode < 200 || statusCode >= 300) {

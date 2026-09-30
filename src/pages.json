@@ -8,6 +8,8 @@
   "pages": [
     { "path": "pages/auth/login", "style": { "navigationBarTitleText": "登录", "navigationStyle": "custom" } },
     { "path": "pages/auth/register", "style": { "navigationBarTitleText": "注册", "navigationStyle": "custom" } },
+    { "path": "pages/auth/forgot-password", "style": { "navigationBarTitleText": "找回密码", "navigationStyle": "custom" } },
+    { "path": "pages/auth/reset-password", "style": { "navigationBarTitleText": "设置新密码", "navigationStyle": "custom" } },
     { "path": "pages/ledger/index", "style": { "navigationBarTitleText": "账本", "navigationStyle": "custom" } },
     { "path": "pages/ledger/expense-statistics", "style": { "navigationBarTitleText": "费用统计", "navigationStyle": "custom" } },
     { "path": "pages/ledger/category-transactions", "style": { "navigationBarTitleText": "分类流水" } },
@@ -17,7 +19,10 @@
     { "path": "pages/profile/index", "style": { "navigationBarTitleText": "我的", "navigationStyle": "custom" } },
     { "path": "pages/profile/theme-settings", "style": { "navigationBarTitleText": "主题外观" } },
     { "path": "pages/profile/info", "style": { "navigationBarTitleText": "个人信息" } },
-    { "path": "pages/profile/import-export", "style": { "navigationBarTitleText": "导入导出" } }
+    { "path": "pages/profile/change-password", "style": { "navigationBarTitleText": "修改密码" } },
+    { "path": "pages/profile/account-security", "style": { "navigationBarTitleText": "账号安全" } },
+    { "path": "pages/profile/verify-old-email", "style": { "navigationBarTitleText": "验证原邮箱" } },
+    { "path": "pages/profile/bind-email", "style": { "navigationBarTitleText": "绑定邮箱" } }
   ],
   "tabBar": {
     "custom": true,
