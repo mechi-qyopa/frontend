@@ -2,6 +2,7 @@
   <view :class="['security-page', `theme-${themeStore.id}`]" :style="themeStore.pageStyle">
     <view class="card category-entry" @click="goChangePassword"><view><text class="entry-title">修改密码</text><text class="entry-subtitle">修改后所有设备需重新登录</text></view><text class="entry-arrow">›</text></view>
     <view class="card category-entry" @click="goBindEmail"><view><text class="entry-title">绑定邮箱</text><text class="entry-subtitle">{{ boundEmailSubtitle }}</text></view><text class="entry-arrow">›</text></view>
+    <button class="logout" @click="logout">退出登录</button>
   </view>
 </template>
 
@@ -30,6 +31,7 @@ function goChangePassword() { uni.navigateTo({ url: '/pages/profile/change-passw
 function goBindEmail() {
   uni.navigateTo({ url: currentEmail.value ? '/pages/profile/verify-old-email' : '/pages/profile/bind-email' })
 }
+function logout() { uni.showModal({ title: '退出登录', content: '确定退出当前账号吗？', success: async ({ confirm }) => { if (!confirm) return; try { await appApi.logout() } catch { /* token 无效时仍清理本地状态 */ } finally { authStore.clear(); uni.reLaunch({ url: '/pages/auth/login' }) } } }) }
 </script>
 
 <style scoped>
@@ -38,4 +40,8 @@ function goBindEmail() {
 .entry-title { color: var(--theme-text-strong); font-size: 30rpx; font-weight: 500; }
 .entry-subtitle { display: block; margin-top: 10rpx; color: var(--theme-text-muted); font-size: 23rpx; }
 .entry-arrow { color: var(--theme-text-muted); font-size: 40rpx; }
+/* 退出登录：低频危险操作，白底卡 + 危险色文字，与页面卡片风格一致 */
+.logout { margin: 52rpx 24rpx; color: var(--theme-expense); background: var(--theme-surface); font-size: 30rpx; }
+.logout::after { border: 0; }
+.logout:active { opacity: .76; }
 </style>

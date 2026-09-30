@@ -68,17 +68,28 @@ $u-info-light: #f4f4f5;
   --theme-tab-inactive: #8b95a7;
   --theme-tab-active-icon-filter: none;
   --theme-chart-1: #1677ff;
-  --theme-chart-2: #5c9dff;
-  --theme-chart-3: #69a7ff;
-  --theme-chart-4: #8bbcff;
-  --theme-chart-5: #a9ceff;
-  --theme-chart-6: #c7ddff;
+  --theme-chart-2: #00b8a9;
+  --theme-chart-3: #8b5cf6;
+  --theme-chart-4: #f59e0b;
+  --theme-chart-5: #f43f5e;
+  --theme-chart-6: #64748b;
+  --theme-income: #16a34a;
+  --theme-expense: #e11d48;
+  --theme-on-primary: #ffffff;
+  --elev-1: 0 2rpx 8rpx rgba(16, 24, 40, .05);
+  --elev-2: 0 10rpx 30rpx rgba(36, 58, 99, .07);
+  --elev-3: 0 18rpx 44rpx rgba(36, 58, 99, .16);
+  --font-caption: 22rpx;
+  --font-body: 26rpx;
+  --font-md: 30rpx;
+  --font-title: 34rpx;
+  --font-hero: 56rpx;
 }
 
 /* #ifdef APP-PLUS */
 /* App 端隐藏原生 tabBar 后使用自定义 tabBar 组件，--window-bottom 归零。
    用自定义 tabBar 内容高度（不含安全区）替代，安全区由各页面 env(safe-area-inset-bottom) 补足。 */
-:root, page { --tab-bar-height: 140rpx; }
+:root, page { --tab-bar-height: 128rpx; }
 /* #endif */
 
 page { background: var(--theme-page-bg); color: var(--theme-text); font-size: 28rpx; }
@@ -93,15 +104,20 @@ page { background: var(--theme-page-bg); color: var(--theme-text); font-size: 28
 button::after { border: none; }
 button { border-radius: var(--theme-radius-control, 16rpx); }
 .input { box-sizing: border-box; width: 100%; min-height: 88rpx; padding: 0 24rpx; border-radius: var(--theme-radius-control, 16rpx); color: var(--theme-text-strong); background: var(--theme-surface); }
-.card { margin: 24rpx; padding: 28rpx; border-radius: var(--theme-radius-card, 24rpx); background: var(--theme-surface); box-shadow: 0 8rpx 32rpx rgba(36, 58, 99, .06); }
+.card { margin: 24rpx; padding: 28rpx; border-radius: var(--theme-radius-card, 24rpx); background: var(--theme-surface); box-shadow: var(--elev-2); border: 1rpx solid var(--theme-border); }
 
-/* 主题装饰语言：深色主题卡片专属描边，浅色主题保持默认 */
-.theme-violet .card { border: 1rpx solid var(--theme-border); }
-.theme-obsidian .card { border: 1rpx solid rgba(217, 166, 72, .3); box-shadow: 0 8rpx 28rpx rgba(0, 0, 0, .32); }
 .primary-button { color: #fff; background: var(--theme-primary); }
 .danger-button { color: #ef4444; background: #fff1f2; }
 .muted { color: var(--theme-text-muted); }
 .empty { padding: 90rpx 24rpx; color: var(--theme-text-muted); text-align: center; }
+
+/* 统一按压反馈：页面级复用，替代散落各页的 opacity 方案 */
+.press { transition: transform .15s ease, opacity .15s ease; }
+.press:active { transform: scale(.97); opacity: .9; }
+
+/* 渐变主视觉容器：叠加高光提升质感，页面只管尺寸 */
+.hero { position: relative; overflow: hidden; color: var(--theme-on-primary); background: linear-gradient(150deg, var(--theme-primary), var(--theme-primary-end)); }
+.hero::after { position: absolute; inset: 0; border-radius: inherit; background: radial-gradient(130% 100% at 88% -20%, rgba(255, 255, 255, .3), transparent 55%); content: ''; pointer-events: none; }
 
 /* H5 使用 Uni 内置 tabBar。默认实现会以 *-active.png 切换选中图标，但不会增加 active class。 */
 .uni-tabbar__label { font-size: 16px !important; line-height: 1.5 !important; }

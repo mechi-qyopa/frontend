@@ -8,7 +8,7 @@ export const THEMES = [
     description: '清爽、专注的默认外观',
     icons: { tab: ['file-text', 'column-line', 'chat', 'account'] },
     shape: { card: '24rpx', control: '16rpx' },
-    colors: { primary: '#1677ff', primaryEnd: '#5c9dff', primarySoft: '#eaf3ff', primaryShadow: 'rgba(22, 119, 255, .26)', pageBackground: '#f5f7fb', surface: '#ffffff', text: '#1d2939', textStrong: '#344054', textSecondary: '#667085', textMuted: '#98a2b3', border: '#edf0f5', chart: ['#1677ff', '#5c9dff', '#69a7ff', '#8bbcff', '#a9ceff', '#c7ddff'], tabInactive: '#8b95a7' }
+    colors: { primary: '#1677ff', primaryEnd: '#5c9dff', primarySoft: '#eaf3ff', primaryShadow: 'rgba(22, 119, 255, .26)', pageBackground: '#f5f7fb', surface: '#ffffff', text: '#1d2939', textStrong: '#344054', textSecondary: '#667085', textMuted: '#98a2b3', border: '#edf0f5', chart: ['#1677ff', '#00b8a9', '#8b5cf6', '#f59e0b', '#f43f5e', '#64748b'], tabInactive: '#8b95a7', income: '#16a34a', expense: '#e11d48' }
   },
   {
     id: 'forest',
@@ -16,7 +16,7 @@ export const THEMES = [
     description: '自然、平静的记录体验',
     icons: { tab: ['order', 'calendar', 'kefu-ermai', 'setting'] },
     shape: { card: '30rpx', control: '20rpx' },
-    colors: { primary: '#159b70', primaryEnd: '#4cc38c', primarySoft: '#e7f8f0', primaryShadow: 'rgba(21, 155, 112, .26)', pageBackground: '#f4faf6', surface: '#ffffff', text: '#17342a', textStrong: '#28513f', textSecondary: '#668076', textMuted: '#92a59d', border: '#e3eee8', chart: ['#159b70', '#4cc38c', '#79d4a7', '#9be3c1', '#bcebd5', '#d8f3e4'], tabInactive: '#82968d' }
+    colors: { primary: '#159b70', primaryEnd: '#4cc38c', primarySoft: '#e7f8f0', primaryShadow: 'rgba(21, 155, 112, .26)', pageBackground: '#f4faf6', surface: '#ffffff', text: '#17342a', textStrong: '#28513f', textSecondary: '#668076', textMuted: '#92a59d', border: '#e3eee8', chart: ['#159b70', '#3b82f6', '#f59e0b', '#8b5cf6', '#e5484d', '#64748b'], tabInactive: '#82968d', income: '#0e8f68', expense: '#d94f5c' }
   },
   {
     id: 'sunset',
@@ -24,7 +24,7 @@ export const THEMES = [
     description: '温暖、积极的消费洞察',
     icons: { tab: ['tags', 'integral', 'chat', 'account'] },
     shape: { card: '18rpx', control: '12rpx' },
-    colors: { primary: '#ef7a32', primaryEnd: '#f7ad55', primarySoft: '#fff1e7', primaryShadow: 'rgba(239, 122, 50, .26)', pageBackground: '#fff8f3', surface: '#ffffff', text: '#3b2a21', textStrong: '#5c4030', textSecondary: '#846b5d', textMuted: '#ab968a', border: '#f5e8df', chart: ['#ef7a32', '#f7ad55', '#f6be79', '#f9cf9b', '#fbe0bb', '#fcebd5'], tabInactive: '#9b8a7e' }
+    colors: { primary: '#ef7a32', primaryEnd: '#f7ad55', primarySoft: '#fff1e7', primaryShadow: 'rgba(239, 122, 50, .26)', pageBackground: '#fff8f3', surface: '#ffffff', text: '#3b2a21', textStrong: '#5c4030', textSecondary: '#846b5d', textMuted: '#ab968a', border: '#f5e8df', chart: ['#ef7a32', '#3b82f6', '#10b981', '#8b5cf6', '#e5484d', '#64748b'], tabInactive: '#9b8a7e', income: '#1d9a6c', expense: '#e05252' }
   },
   {
     id: 'blossom',
@@ -32,7 +32,7 @@ export const THEMES = [
     description: '柔和、轻盈的日常记账',
     icons: { tab: ['list-dot', 'heart', 'chat', 'star'] },
     shape: { card: '32rpx', control: '22rpx' },
-    colors: { primary: '#e85d8c', primaryEnd: '#f28bb0', primarySoft: '#fff0f5', primaryShadow: 'rgba(232, 93, 140, .26)', pageBackground: '#fff7fa', surface: '#ffffff', text: '#3b202b', textStrong: '#5b3141', textSecondary: '#8a6572', textMuted: '#b395a0', border: '#f6e3ea', chart: ['#e85d8c', '#f28bb0', '#f5acc5', '#ef78a2', '#f8c6d8', '#fbe0e9'], tabInactive: '#a48b95' }
+    colors: { primary: '#e85d8c', primaryEnd: '#f28bb0', primarySoft: '#fff0f5', primaryShadow: 'rgba(232, 93, 140, .26)', pageBackground: '#fff7fa', surface: '#ffffff', text: '#3b202b', textStrong: '#5b3141', textSecondary: '#8a6572', textMuted: '#b395a0', border: '#f6e3ea', chart: ['#e85d8c', '#3b82f6', '#10b981', '#f59e0b', '#8b5cf6', '#14b8a6'], tabInactive: '#a48b95', income: '#2fa87a', expense: '#e05a75' }
   },
   {
     id: 'kitty',
@@ -64,7 +64,7 @@ export const THEMES = [
     },
     icons: { tab: ['order', 'integral', 'chat', 'heart'] },
     shape: { card: '36rpx', control: '24rpx' },
-    colors: { primary: '#f59e42', primaryEnd: '#fcc675', primarySoft: '#fdf3e2', primaryShadow: 'rgba(245, 158, 66, .26)', pageBackground: '#fdf8ef', surface: '#ffffff', text: '#3d2c1e', textStrong: '#5c4530', textSecondary: '#8a7460', textMuted: '#b5a18c', border: '#f1e6d4', chart: ['#f59e42', '#fcc675', '#feddab', '#d98a3f', '#b9743a', '#8f5a2e'], tabInactive: '#a99a87' }
+    colors: { primary: '#f59e42', primaryEnd: '#fcc675', primarySoft: '#fdf3e2', primaryShadow: 'rgba(245, 158, 66, .26)', pageBackground: '#fdf8ef', surface: '#ffffff', text: '#3d2c1e', textStrong: '#5c4530', textSecondary: '#8a7460', textMuted: '#b5a18c', border: '#f1e6d4', chart: ['#f59e42', '#5ba8f5', '#9b7ce8', '#4fb989', '#ee7ea9', '#8c9bab'], tabInactive: '#a99a87', income: '#4f9e5f', expense: '#e2604a' }
   },
   {
     id: 'violet',
@@ -73,7 +73,7 @@ export const THEMES = [
     dark: true,
     icons: { tab: ['home', 'column-line', 'chat', 'setting'] },
     shape: { card: '20rpx', control: '14rpx' },
-    colors: { primary: '#9c6cff', primaryEnd: '#c28cff', primarySoft: '#2b2340', primaryShadow: 'rgba(156, 108, 255, .34)', pageBackground: '#181422', surface: '#251f33', text: '#f5f0ff', textStrong: '#e4d9f6', textSecondary: '#b8aacd', textMuted: '#9184a7', border: '#382f4b', chart: ['#9c6cff', '#c28cff', '#d7adff', '#a98ae6', '#785bb2', '#563f86'], tabInactive: '#9d91b2' }
+    colors: { primary: '#9c6cff', primaryEnd: '#c28cff', primarySoft: '#2b2340', primaryShadow: 'rgba(156, 108, 255, .34)', pageBackground: '#181422', surface: '#251f33', text: '#f5f0ff', textStrong: '#e4d9f6', textSecondary: '#b8aacd', textMuted: '#9184a7', border: '#382f4b', chart: ['#9c6cff', '#22d3ee', '#f472b6', '#4ade80', '#fbbf24', '#94a3b8'], tabInactive: '#9d91b2', income: '#4ade80', expense: '#fb7185' }
   },
   {
     id: 'obsidian',
@@ -82,7 +82,7 @@ export const THEMES = [
     dark: true,
     icons: { tab: ['rmb-circle', 'integral', 'kefu-ermai', 'account'] },
     shape: { card: '12rpx', control: '8rpx' },
-    colors: { primary: '#d9a648', primaryEnd: '#f2cd7b', primarySoft: '#2e2716', primaryShadow: 'rgba(217, 166, 72, .3)', pageBackground: '#141210', surface: '#211d17', text: '#f3ecdd', textStrong: '#e7ddc6', textSecondary: '#b0a68c', textMuted: '#847a63', border: '#332d21', chart: ['#d9a648', '#f2cd7b', '#b8873a', '#8f6a2b', '#f4dfa4', '#6e5522'], tabInactive: '#8a8171' }
+    colors: { primary: '#d9a648', primaryEnd: '#f2cd7b', primarySoft: '#2e2716', primaryShadow: 'rgba(217, 166, 72, .3)', pageBackground: '#141210', surface: '#211d17', text: '#f3ecdd', textStrong: '#e7ddc6', textSecondary: '#b0a68c', textMuted: '#847a63', border: '#332d21', chart: ['#d9a648', '#4fb6e8', '#66c79a', '#e07a9b', '#a78bfa', '#9a9482'], tabInactive: '#8a8171', income: '#9ad0a8', expense: '#f0968c' }
   }
 ]
 
@@ -97,6 +97,12 @@ const TAB_ACTIVE_ICON_FILTERS = {
   kitty: 'hue-rotate(183deg) saturate(.8) brightness(.96)',
   violet: 'hue-rotate(46deg) saturate(.75) brightness(1.28)',
   obsidian: 'hue-rotate(-170deg) saturate(.6) brightness(1.06)'
+}
+
+// 层级阴影：浅色主题用冷灰投影，深色主题用纯黑投影保证可见性
+const ELEVATIONS = {
+  light: ['0 2rpx 8rpx rgba(16, 24, 40, .05)', '0 10rpx 30rpx rgba(36, 58, 99, .07)', '0 18rpx 44rpx rgba(36, 58, 99, .16)'],
+  dark: ['0 2rpx 8rpx rgba(0, 0, 0, .32)', '0 10rpx 30rpx rgba(0, 0, 0, .45)', '0 18rpx 44rpx rgba(0, 0, 0, .6)']
 }
 
 const resolveTheme = (id) => THEMES.find((theme) => theme.id === id) || THEMES[0]
@@ -119,6 +125,12 @@ function cssVariables(theme) {
     '--theme-border': colors.border,
     '--theme-tab-inactive': colors.tabInactive,
     '--theme-tab-active-icon-filter': TAB_ACTIVE_ICON_FILTERS[theme.id],
+    '--theme-income': colors.income,
+    '--theme-expense': colors.expense,
+    '--theme-on-primary': '#ffffff',
+    '--elev-1': ELEVATIONS[theme.dark ? 'dark' : 'light'][0],
+    '--elev-2': ELEVATIONS[theme.dark ? 'dark' : 'light'][1],
+    '--elev-3': ELEVATIONS[theme.dark ? 'dark' : 'light'][2],
     '--theme-chart-1': colors.chart[0],
     '--theme-chart-2': colors.chart[1],
     '--theme-chart-3': colors.chart[2],

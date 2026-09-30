@@ -1,6 +1,6 @@
 <template>
   <view class="auth-page">
-    <view class="hero"><text class="brand">找回密码</text><text class="subtitle">第 1 步 · 通过注册邮箱验证身份</text></view>
+    <view class="auth-hero"><text class="brand">找回密码</text><text class="subtitle">第 1 步 · 通过注册邮箱验证身份</text></view>
     <view class="form-card">
       <input v-model.trim="form.email" class="input" type="email" placeholder="注册邮箱" maxlength="255" confirm-type="next" />
       <view class="code-row form-space">
@@ -76,7 +76,7 @@ function goBack() { uni.navigateBack({ fail: () => uni.reLaunch({ url: '/pages/a
 
 <style scoped>
 .auth-page { min-height: 100vh; padding: 132rpx 48rpx 48rpx; background: linear-gradient(160deg, #e8f2ff 0%, #f5f7fb 52%, #fff 100%); }
-.hero { margin-bottom: 72rpx; }
+.auth-hero { margin-bottom: 72rpx; }
 .brand { display: block; color: #1158b8; font-size: 58rpx; font-weight: 700; }
 .subtitle { display: block; margin-top: 18rpx; color: #60708a; font-size: 28rpx; }
 .form-card { padding: 44rpx 36rpx; border-radius: 32rpx; background: #fff; box-shadow: 0 20rpx 60rpx rgba(26, 84, 164, .12); }

@@ -226,6 +226,7 @@ export const appApi = {
   chat: (data) => request({ url: '/api/v1/app/chat', method: 'POST', data }),
   streamChat: (data, onToken) => streamChat(data, onToken),
   listChatConversations: () => request({ url: '/api/v1/app/chat/conversations' }),
+  deleteChatConversation: (sessionId) => request({ url: `/api/v1/app/chat/conversations/${sessionId}`, method: 'DELETE' }),
   chatHistory: (sessionId) => request({ url: '/api/v1/app/chat/history', data: { sessionId} }),
   uploadImage,
   sendBindEmailCode: (data) => request({ url: '/api/v1/app/me/email/verification-codes', method: 'POST', data }),

@@ -1,7 +1,7 @@
 <template>
   <view class="auth-page">
     <template v-if="loginReady">
-      <view class="hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
+      <view class="auth-hero"><text class="brand">美记账</text><text class="subtitle">记录每一笔，掌控每一天</text></view>
       <view class="form-card">
         <text class="title">欢迎回来</text>
         <input v-model.trim="form.account" class="input" placeholder="用户名 / 手机号 / 邮箱" maxlength="255" confirm-type="next" />
@@ -53,7 +53,7 @@ function goForgotPassword() { uni.navigateTo({ url: '/pages/auth/forgot-password
 
 <style scoped>
 .auth-page { min-height: 100vh; padding: 132rpx 48rpx 48rpx; background: linear-gradient(160deg, #e8f2ff 0%, #f5f7fb 52%, #fff 100%); }
-.hero { margin-bottom: 82rpx; }
+.auth-hero { margin-bottom: 82rpx; }
 .brand { display: block; color: #1158b8; font-size: 64rpx; font-weight: 700; letter-spacing: 4rpx; }
 .subtitle { display: block; margin-top: 18rpx; color: #60708a; font-size: 28rpx; }
 .form-card { padding: 44rpx 36rpx; border-radius: 32rpx; background: #fff; box-shadow: 0 20rpx 60rpx rgba(26, 84, 164, .12); }

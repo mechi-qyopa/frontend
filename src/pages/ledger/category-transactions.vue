@@ -6,7 +6,7 @@
       <view class="list-title">{{ categoryName }}流水 <text class="muted">{{ transactions.length }} 笔</text></view>
       <view v-if="loading" class="empty">加载中…</view>
       <view v-else-if="!transactions.length" class="empty">该分类在此时间段暂无流水</view>
-      <view v-else class="day-groups"><view v-for="group in transactionGroups" :key="group.date" class="day-group"><view class="day-header"><text class="day-label">{{ group.label }}</text><text class="day-date">{{ group.date }}</text></view><view class="transaction-list"><view v-for="item in group.items" :key="item.id" class="transaction-item" @click="goEdit(item)"><view class="icon category-icon-bg"><text class="icon-emoji">{{ getCategoryIcon(item) }}</text><image v-if="getCategoryImage(item)" class="icon-image" :src="getCategoryImage(item)" mode="aspectFill" /></view><view class="item-main"><text class="item-name">{{ resolveCategoryName(item) }}</text><text class="item-note">{{ item.note || '暂无备注' }}</text></view><view class="item-right"><text :class="item.transactionType === 'INCOME' ? 'income' : 'expense'">{{ item.transactionType === 'INCOME' ? '+' : '-' }}{{ formatAmount(item.amount) }}</text></view><text class="delete" @click.stop="remove(item)">删除</text></view></view></view></view>
+      <view v-else class="day-groups"><view v-for="group in transactionGroups" :key="group.date" class="day-group"><view class="day-header"><text class="day-label">{{ group.label }}</text><text class="day-date">{{ group.date }}</text></view><view class="transaction-list"><view v-for="item in group.items" :key="item.id" class="transaction-item" @click="goEdit(item)"><view class="icon category-icon-bg"><category-icon :name="getCategoryName(item)" :type="item.transactionType" :icon-key="getCategoryIconKey(item)" :size="42" /><image v-if="getCategoryImage(item)" class="icon-image" :src="getCategoryImage(item)" mode="aspectFill" /></view><view class="item-main"><text class="item-name">{{ resolveCategoryName(item) }}</text><text class="item-note">{{ item.note || '暂无备注' }}</text></view><view class="item-right"><text :class="item.transactionType === 'INCOME' ? 'income' : 'expense'">{{ item.transactionType === 'INCOME' ? '+' : '-' }}{{ formatAmount(item.amount) }}</text></view><text class="delete" @click.stop="remove(item)">删除</text></view></view></view></view>
     </template>
   </view>
 </template>
@@ -17,7 +17,8 @@ import { onLoad, onShow } from '@dcloudio/uni-app'
 import { appApi } from '../../api/app'
 import { formatAmount, formatDayLabel } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
-import { buildCategoryMap, categoryIcon, resolveCategory } from '../../utils/category-icon'
+import { buildCategoryMap, resolveCategory } from '../../utils/category-icon'
+import CategoryIcon from '../../category-icon/index.vue'
 import { themeStore } from '../../stores/theme'
 
 const categorySource = ref('')
@@ -86,13 +87,17 @@ function resolveCategoryName(item) {
   const cat = resolveCategory(item, categoryMap.value)
   return cat?.name || '分类已停用或删除'
 }
-function getCategoryIcon(item) {
+function getCategoryName(item) {
   const cat = resolveCategory(item, categoryMap.value)
-  return categoryIcon(cat?.name, item.transactionType)
+  return cat?.name || ''
 }
 function getCategoryImage(item) {
   const cat = resolveCategory(item, categoryMap.value)
   return cat?.imageUrl || ''
+}
+function getCategoryIconKey(item) {
+  const cat = resolveCategory(item, categoryMap.value)
+  return cat?.iconKey || ''
 }
 function goEdit(item) { uni.navigateTo({ url: `/pages/ledger/transaction-form?id=${item.id}` }) }
 function remove(item) {

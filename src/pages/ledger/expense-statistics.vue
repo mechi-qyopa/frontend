@@ -9,11 +9,11 @@
         <text class="range-divider">至</text>
         <picker mode="date" :value="range.endDate" @change="selectCustomEnd"><view class="date-field"><text>结束日期</text><text>{{ range.endDate }}</text></view></picker>
       </view>
-      <view v-else class="range-control" @click="openPicker"><view class="range-info"><image v-if="mascots" class="mini-cat" :src="mascots.smug" mode="aspectFit" /><view><text class="range-title">{{ periodTitle }}</text><text class="range-detail">{{ range.startDate }} 至 {{ range.endDate }}</text></view></view><view class="range-actions"><view class="range-arrow" /></view></view>
+      <view v-else class="range-control press" @click="openPicker"><view class="range-info"><image v-if="mascots" class="mini-cat" :src="mascots.smug" mode="aspectFit" /><text class="range-title">{{ periodTitle }}</text></view><view class="range-actions"><u-icon name="arrow-down" size="12" /></view></view>
     </view>
 
-    <view class="summary-card">
-      <view><text class="summary-label">区间总支出</text><text class="summary-amount">¥ {{ formatAmount(expenseTotal) }}</text></view>
+    <view class="hero summary-card">
+      <view class="summary-main"><text class="summary-label">区间总支出</text><view class="summary-amount-row"><text class="summary-currency">¥</text><text class="summary-amount">{{ formatAmount(expenseTotal) }}</text></view></view>
       <view class="summary-side"><text>{{ trendUnitLabel }}均支出</text><text>¥ {{ formatAmount(averageExpense) }}</text></view>
       <image v-if="mascots" class="summary-avatar" :src="mascots.shock" mode="aspectFit" />
     </view>
@@ -36,16 +36,14 @@
 
     <view class="card category-card">
       <view class="card-header"><view class="card-title-wrap"><image v-if="mascots" class="card-paw" :src="mascots.note" mode="aspectFit" /><view><text class="card-title">支出占比</text><text class="card-subtitle">按分类汇总</text></view></view><text class="total-count">{{ expenseTransactions }} 笔</text></view>
-      <view v-if="categoryStats.length" class="pie-section"><view :class="['pie-chart', { 'single-category': categoryStats.length === 1 }]" :style="pieChartStyle"><view class="pie-hole"><text>总支出</text><text>¥ {{ formatAmount(expenseTotal) }}</text></view></view><view class="pie-legend"><view v-for="(item, index) in categoryStats.slice(0, 4)" :key="item.key" class="legend-item" @click="goCategoryDetail(item)"><text class="legend-dot" :style="{ background: pieColor(index) }" /><view><text>{{ item.name }}</text><text>{{ item.percent.toFixed(1) }}%</text></view></view></view></view>
-      <view v-if="categoryStats.length" class="category-list"><view v-for="item in categoryStats" :key="item.key" class="category-row" @click="goCategoryDetail(item)"><view class="category-row-top"><view class="category-name"><text class="rank-badge">{{ item.rank }}</text><text>{{ item.name }}</text></view><text>¥ {{ formatAmount(item.amount) }}</text></view><view class="progress-track"><view class="progress-value" :style="{ width: `${item.percent}%` }" /></view><view class="category-row-bottom"><text>{{ item.count }} 笔</text><text>{{ item.percent.toFixed(1) }}%</text></view></view></view>
+      <view v-if="categoryStats.length" class="pie-section"><view :class="['pie-chart', { 'single-category': categoryStats.length === 1 }]" :style="pieChartStyle"><view class="pie-hole"><text>总支出</text><text>¥ {{ formatAmount(expenseTotal) }}</text></view></view><view class="pie-legend"><view v-for="segment in pieSegments" :key="segment.key" class="legend-item press" @click="goCategoryDetail(segment.detail)"><text class="legend-dot" :style="{ background: segment.color }" /><view><text>{{ segment.name }}</text><text>{{ segment.percent.toFixed(1) }}%</text></view></view></view></view>
+      <view v-if="categoryStats.length" class="category-list"><view v-for="item in categoryStats" :key="item.key" class="category-row press" @click="goCategoryDetail(item)"><view class="category-row-top"><view class="category-name"><text class="rank-badge">{{ item.rank }}</text><text>{{ item.name }}</text></view><text>¥ {{ formatAmount(item.amount) }}</text></view><view class="progress-track"><view class="progress-value" :style="{ width: `${item.percent}%` }" /></view><view class="category-row-bottom"><text>{{ item.count }} 笔</text><text>{{ item.percent.toFixed(1) }}%</text></view></view></view>
       <view v-else-if="!loading" class="empty"><image v-if="mascots" class="empty-cat" :src="mascots.empty" mode="aspectFit" /><text>{{ mascots ? '喵呜，该区间暂无支出分类' : '该区间暂无支出分类' }}</text></view><view v-else class="empty">加载中…</view>
     </view>
 
     <view v-if="mascots" class="ledger-cat-footer"><image :src="mascots.cake" mode="aspectFit" /><text>喵，{{ periodTitle }}的支出都看完啦～</text></view>
 
-    <!-- #ifdef APP-PLUS -->
     <custom-tab-bar />
-    <!-- #endif -->
   </view>
 
   <view v-if="pickerVisible" :key="themeStore.id" class="picker-mask" :style="themeStore.cssVariables" @click.self="closePicker">
@@ -67,9 +65,7 @@ import { appApi } from '../../api/app'
 import { formatAmount, formatDate, monthRange, weekRange, weekRangesInMonth, yearRange } from '../../utils/date'
 import { showRequestError } from '../../utils/request'
 import { themeStore } from '../../stores/theme'
-// #ifdef APP-PLUS
 import CustomTabBar from '../../custom-tab-bar/index.vue'
-// #endif
 
 const range = reactive(monthRange())
 // 猫咪主题：mascots 存在即进入猫咪模式
@@ -99,7 +95,18 @@ let requestId = 0
 const years = computed(() => Array.from({ length: 12 }, (_, index) => pickerYear.value - 11 + index))
 const weeks = computed(() => weekRangesInMonth(pickerYear.value, pickerMonth.value))
 const pickerHeading = computed(() => pickerMode.value === 'WEEK' ? `${pickerYear.value}年${pickerMonth.value + 1}月` : `${pickerYear.value}年`)
-const periodTitle = computed(() => periodType.value === 'WEEK' ? '按周费用统计' : periodType.value === 'YEAR' ? `${range.startDate.slice(0, 4)}年费用统计` : `${range.startDate.slice(0, 4)}年${Number(range.startDate.slice(5, 7))}月费用统计`)
+// 周期标题与首页口径一致：只说到周/月/年，不展示具体日期区间（自定义除外）
+const periodTitle = computed(() => {
+  if (periodType.value === 'CUSTOM') return '自定义区间'
+  if (periodType.value === 'WEEK') {
+    const date = parseDate(range.startDate)
+    const weeksOfMonth = weekRangesInMonth(date.getFullYear(), date.getMonth())
+    const index = weeksOfMonth.findIndex((week) => week.startDate === range.startDate)
+    return `${date.getFullYear()}年${date.getMonth() + 1}月第${(index >= 0 ? index : 0) + 1}周`
+  }
+  if (periodType.value === 'YEAR') return `${range.startDate.slice(0, 4)}年`
+  return `${range.startDate.slice(0, 4)}年${Number(range.startDate.slice(5, 7))}月`
+})
 const trendUnitLabel = computed(() => periodType.value === 'YEAR' ? '按月' : '按日')
 const peakAmount = computed(() => Math.max(0, ...trendData.value.map(item => item.amount)))
 const averageExpense = computed(() => expenseTotal.value / Math.max(1, trendData.value.length))
@@ -139,13 +146,24 @@ const trendLabelPoints = computed(() => {
   // 月：每隔5天显示
   return points.filter((_, index) => index % 5 === 0)
 })
+// 环形图只画前 4 个分类，其余合并为「其余 N 类」：避免尾部细缝看似缺口，也保证图例与扇形一一对应
+const PIE_LEGEND_LIMIT = 4
+const pieSegments = computed(() => {
+  const stats = categoryStats.value
+  if (!stats.length) return []
+  const top = stats.slice(0, PIE_LEGEND_LIMIT).map((item, index) => ({ key: item.key, name: item.name, percent: item.percent, color: pieColor(index), detail: item }))
+  const rest = stats.slice(PIE_LEGEND_LIMIT)
+  if (!rest.length) return top
+  const restPercent = rest.reduce((sum, item) => sum + item.percent, 0)
+  return [...top, { key: '__rest__', name: `其余${rest.length}类`, percent: restPercent, color: themeStore.currentTheme.colors.textMuted, detail: null }]
+})
 const pieChartStyle = computed(() => {
-  if (categoryStats.value.length <= 1) return {}
+  if (pieSegments.value.length <= 1) return {}
   let offset = 0
-  const segments = categoryStats.value.map((item, index) => {
+  const segments = pieSegments.value.map((segment) => {
     const start = offset
-    offset += item.percent
-    return `${pieColor(index)} ${start}% ${offset}%`
+    offset += segment.percent
+    return `${segment.color} ${start}% ${offset}%`
   })
   return { backgroundImage: `conic-gradient(${segments.join(', ')})` }
 })
@@ -205,7 +223,7 @@ function weekLabel(week) { const start = parseDate(week.startDate); const end = 
 function selectCustomStart(event) { const startDate = event.detail.value; if (startDate > range.endDate) return uni.showToast({ title: '开始日期不能晚于结束日期', icon: 'none' }); range.startDate = startDate; load() }
 function selectCustomEnd(event) { const endDate = event.detail.value; if (endDate < range.startDate) return uni.showToast({ title: '结束日期不能早于开始日期', icon: 'none' }); range.endDate = endDate; load() }
 function goCategoryDetail(item) {
-  if (item.categoryId === null || item.categoryId === undefined) return
+  if (!item || item.categoryId === null || item.categoryId === undefined) return
   const params = [
     `categorySource=${encodeURIComponent(item.categorySource)}`,
     `categoryId=${encodeURIComponent(item.categoryId)}`,
@@ -318,49 +336,111 @@ function pieColor(index) { return pieColors.value[index % pieColors.value.length
 </script>
 
 <style scoped>
-.page { min-height: 100vh; padding: calc(24rpx + var(--status-bar-height, 0)) 24rpx calc(48rpx + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom)); background: #f5f7fb; box-sizing: border-box; }.filter-card,.card { margin: 0 0 24rpx; padding: 26rpx 28rpx; border-radius: 24rpx; background: #fff; box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .05); }.period-tabs { display: flex; gap: 10rpx; padding: 8rpx; border-radius: 16rpx; background: #f5f7fb; }.period-tab { flex: 1; padding: 14rpx 0; border-radius: 12rpx; color: #667085; font-size: 26rpx; text-align: center; }.period-tab.active { color: #1677ff; background: #fff; box-shadow: 0 3rpx 10rpx rgba(36, 58, 99, .1); font-weight: 600; }.range-control { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 2rpx 0; }.range-title,.range-detail { display: block; }.range-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.range-detail { margin-top: 8rpx; color: #98a2b3; font-size: 23rpx; }.range-actions { display: flex; align-items: center; justify-content: center; width: 52rpx; height: 52rpx; border-radius: 16rpx; background: #f5f8fd; }.range-arrow { position: relative; display: block; width: 30rpx; height: 30rpx; border: 3rpx solid #667085; border-radius: 50%; box-sizing: border-box; }.range-arrow::before,.range-arrow::after { position: absolute; border-radius: 3rpx; background: #667085; content: ''; }.range-arrow::before { top: 5rpx; left: 11rpx; width: 3rpx; height: 11rpx; }.range-arrow::after { top: 14rpx; left: 13rpx; width: 9rpx; height: 3rpx; }.custom-range { display: flex; align-items: center; gap: 12rpx; padding-top: 24rpx; }.custom-range picker { flex: 1; min-width: 0; }.date-field { padding: 16rpx; border-radius: 14rpx; background: #f7f8fa; }.date-field text { display: block; overflow: hidden; color: #344054; font-size: 23rpx; text-overflow: ellipsis; white-space: nowrap; }.date-field text:first-child { margin-bottom: 7rpx; color: #98a2b3; font-size: 20rpx; }.range-divider { color: #98a2b3; font-size: 23rpx; }.summary-card { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; padding: 30rpx; border-radius: 24rpx; color: #fff; background: linear-gradient(135deg, #1677ff, #5c9dff); box-shadow: 0 10rpx 28rpx rgba(22, 119, 255, .2); }.summary-label,.summary-amount,.summary-side text { display: block; }.summary-label,.summary-side text:first-child { color: rgba(255, 255, 255, .74); font-size: 24rpx; }.summary-amount { margin-top: 12rpx; color: #fff; font-size: 42rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.summary-side { text-align: right; }.summary-side text:last-child { margin-top: 12rpx; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.card-header { display: flex; align-items: flex-start; justify-content: space-between; }.card-title,.card-subtitle { display: block; }.card-title { color: #1d2939; font-size: 30rpx; font-weight: 600; }.card-subtitle { margin-top: 7rpx; color: #98a2b3; font-size: 22rpx; }.peak-label,.total-count { padding: 8rpx 12rpx; border-radius: 12rpx; color: #1677ff; background: #eff6ff; font-size: 22rpx; }.trend-card { position: relative; }.trend-chart { display: flex; gap: 12rpx; margin-top: 24rpx; }.trend-y-axis { display: flex; flex: 0 0 68rpx; flex-direction: column; justify-content: space-between; height: 184rpx; padding: 1rpx 0; color: #98a2b3; font-size: 19rpx; line-height: 1; text-align: right; box-sizing: border-box; }.trend-plot-wrap { flex: 1; min-width: 0; }.trend-plot { position: relative; height: 184rpx; border-bottom: 1rpx solid #e9eff8; }.trend-grid-line { position: absolute; right: 0; left: 0; height: 1rpx; background: #e9eff8; }.grid-top { top: 0; }.grid-middle { top: 50%; }.grid-bottom { bottom: 0; }.trend-segment { position: absolute; z-index: 1; height: 4rpx; border-radius: 4rpx; background: #1677ff; transform-origin: left center; }.trend-point { position: absolute; z-index: 2; width: 12rpx; height: 12rpx; margin-bottom: -6rpx; margin-left: -6rpx; border: 3rpx solid #fff; border-radius: 50%; background: #1677ff; box-shadow: 0 2rpx 6rpx rgba(22, 119, 255, .25); box-sizing: border-box; }.trend-x-axis { position: relative; height: 34rpx; margin-top: 10rpx; }.trend-x-axis text { position: absolute; overflow: hidden; max-width: 68rpx; color: #98a2b3; font-size: 18rpx; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }.chart-empty { padding: 90rpx 0 54rpx; color: #98a2b3; font-size: 24rpx; text-align: center; }.pie-section { display: flex; align-items: center; gap: 18rpx; margin-top: 26rpx; }.pie-chart { position: relative; display: flex; flex: 0 0 260rpx; align-items: center; justify-content: center; width: 260rpx; height: 260rpx; border-radius: 50%; background: #1677ff; }.pie-chart.single-category { background: #1677ff; }.pie-hole { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 156rpx; height: 156rpx; border-radius: 50%; background: #fff; }.pie-hole text:first-child { color: #98a2b3; font-size: 20rpx; }.pie-hole text:last-child { margin-top: 8rpx; color: #1d2939; font-size: 23rpx; font-weight: 600; font-variant-numeric: tabular-nums; }.pie-legend { display: flex; flex: 1; flex-direction: column; gap: 16rpx; min-width: 0; }.legend-item { display: flex; align-items: center; gap: 10rpx; min-width: 0; cursor: pointer; }.legend-item:active { opacity: .65; }.legend-dot { flex: 0 0 14rpx; width: 14rpx; height: 14rpx; border-radius: 50%; }.legend-item view { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8rpx; min-width: 0; }.legend-item text { overflow: hidden; color: #667085; font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }.legend-item text:last-child { flex: 0 0 auto; color: #344054; font-weight: 500; }.category-list { margin-top: 24rpx; }.category-row { cursor: pointer; }.category-row:active { opacity: .65; }.category-row + .category-row { margin-top: 25rpx; }.category-row-top,.category-row-bottom { display: flex; align-items: center; justify-content: space-between; }.category-row-top { color: #344054; font-size: 25rpx; font-weight: 500; font-variant-numeric: tabular-nums; }.category-name { display: flex; align-items: center; gap: 12rpx; min-width: 0; }.category-name text:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.rank-badge { display: flex; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border-radius: 50%; color: #1677ff; background: #eff6ff; font-size: 20rpx; }.progress-track { height: 13rpx; margin: 14rpx 0 9rpx; overflow: hidden; border-radius: 10rpx; background: #edf2f9; }.progress-value { height: 100%; border-radius: inherit; background: linear-gradient(90deg, #1677ff, #69a7ff); }.category-row-bottom { color: #98a2b3; font-size: 21rpx; }.empty { padding: 65rpx 0 35rpx; color: #98a2b3; text-align: center; }.picker-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(16, 24, 40, .45); }.date-picker { width: 100%; min-height: 610rpx; padding: 18rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); border-radius: 32rpx 32rpx 0 0; background: #fff; box-sizing: border-box; }.picker-handle { width: 72rpx; height: 8rpx; margin: 0 auto 30rpx; border-radius: 10rpx; background: #e4e7ec; }.picker-tabs { display: flex; justify-content: space-around; margin-bottom: 34rpx; }.picker-tab { position: relative; padding: 8rpx 16rpx; color: #98a2b3; font-size: 30rpx; }.picker-tab.active { color: #1d2939; font-weight: 600; }.picker-tab.active::after { position: absolute; right: 16rpx; bottom: 0; left: 16rpx; height: 5rpx; border-radius: 6rpx; background: #1677ff; content: ''; }.picker-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; }.nav-button { width: 70rpx; color: #1d2939; font-size: 68rpx; line-height: 1; text-align: center; }.picker-heading { color: #1d2939; font-size: 34rpx; font-weight: 600; }.date-grid { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 24rpx; }.date-cell { display: flex; align-items: center; justify-content: center; height: 76rpx; border-radius: 16rpx; color: #344054; font-size: 29rpx; }.date-cell.active { color: #fff; background: #1677ff; box-shadow: 0 8rpx 16rpx rgba(22, 119, 255, .22); }.week-list { display: flex; flex-direction: column; gap: 16rpx; max-height: 440rpx; overflow-y: auto; overscroll-behavior: contain; }.week-cell { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 24rpx; border-radius: 18rpx; color: #344054; background: #f7f8fa; font-size: 28rpx; }.week-cell text:last-child { color: #98a2b3; font-size: 22rpx; }.week-cell.active { color: #fff; background: #1677ff; }.week-cell.active text:last-child { color: rgba(255, 255, 255, .78); }
+.page { min-height: 100vh; padding: calc(24rpx + var(--status-bar-height, 0)) 24rpx calc(48rpx + var(--tab-bar-height, var(--window-bottom)) + env(safe-area-inset-bottom)); background: var(--theme-page-bg); box-sizing: border-box; }
+.filter-card, .card { margin: 0 0 24rpx; padding: 26rpx 28rpx; border-radius: var(--theme-radius-card); background: var(--theme-surface); box-shadow: var(--elev-2); border: 1rpx solid var(--theme-border); }
 
-/* 主题覆盖：统计卡片、筛选交互、图表与弹层均随当前主题变量更新。 */
-.page { background: var(--theme-page-bg) !important; }
-.filter-card, .card, .date-picker, .pie-hole { background: var(--theme-surface) !important; }
-.period-tabs { background: var(--theme-page-bg) !important; }
-.period-tab { color: var(--theme-text-secondary) !important; }
-.period-tab.active { color: var(--theme-primary) !important; background: var(--theme-surface) !important; }
-.range-title, .card-title, .picker-tab.active, .nav-button, .picker-heading, .pie-hole text:last-child { color: var(--theme-text) !important; }
-.range-detail, .card-subtitle, .trend-y-axis, .trend-x-axis text, .range-divider, .picker-tab, .week-cell text:last-child, .pie-hole text:first-child, .category-row-bottom, .empty { color: var(--theme-text-muted) !important; }
-.range-actions, .peak-label, .total-count, .rank-badge { color: var(--theme-primary) !important; background: var(--theme-primary-soft) !important; }
-.range-arrow { border-color: var(--theme-text-secondary) !important; background: transparent !important; }
-.range-arrow::before, .range-arrow::after { background: var(--theme-text-secondary) !important; }
-.date-field { background: var(--theme-page-bg) !important; }
-.date-field text, .category-row-top, .legend-item text:last-child { color: var(--theme-text-strong) !important; }
-.date-field text:first-child, .legend-item text { color: var(--theme-text-muted) !important; }
-.summary-card { background: linear-gradient(135deg, var(--theme-primary), var(--theme-primary-end)) !important; }
-.trend-plot { border-color: var(--theme-border) !important; background: transparent !important; }
-.trend-grid-line { background-color: var(--theme-border) !important; }
-.trend-segment, .trend-point { background: var(--theme-primary) !important; }
-.trend-point { border-color: var(--theme-surface) !important; }
-.pie-chart.single-category { background: var(--theme-primary) !important; }
-.progress-track { background: var(--theme-primary-soft) !important; }
-.progress-value { background: linear-gradient(90deg, var(--theme-primary), var(--theme-primary-end)) !important; }
-.picker-handle { background: var(--theme-border) !important; }
-.picker-tab.active::after, .date-cell.active, .week-cell.active { background: var(--theme-primary) !important; }
-.date-cell, .week-cell { color: var(--theme-text-strong) !important; }
-.week-cell { background: var(--theme-page-bg) !important; }
-.week-cell.active, .week-cell.active text:last-child { color: #fff !important; }
+/* 周期筛选：胶囊分段 + 范围入口 */
+.period-tabs { display: flex; gap: 6rpx; padding: 6rpx; border-radius: 999rpx; background: var(--theme-page-bg); border: 1rpx solid var(--theme-border); }
+.period-tab { flex: 1; padding: 14rpx 0; border-radius: 999rpx; color: var(--theme-text-secondary); font-size: var(--font-body); text-align: center; transition: color .2s ease; }
+.period-tab.active { color: var(--theme-primary); background: var(--theme-surface); box-shadow: var(--elev-1); font-weight: 600; }
+.range-control { display: flex; align-items: center; justify-content: space-between; padding: 24rpx 2rpx 0; }
+.range-info { display: flex; align-items: center; min-width: 0; }
+.mini-cat { width: 52rpx; height: 52rpx; margin-right: 14rpx; flex-shrink: 0; }
+.range-title { overflow: hidden; color: var(--theme-text); font-size: var(--font-md); font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.range-actions { display: flex; align-items: center; justify-content: center; width: 56rpx; height: 56rpx; border-radius: 18rpx; color: var(--theme-primary); background: var(--theme-primary-soft); flex-shrink: 0; }
+.custom-range { display: flex; align-items: center; gap: 12rpx; padding-top: 24rpx; }
+.custom-range picker { flex: 1; min-width: 0; }
+.date-field { padding: 16rpx; border-radius: 14rpx; background: var(--theme-page-bg); }
+.date-field text { display: block; overflow: hidden; color: var(--theme-text-strong); font-size: var(--font-caption); text-overflow: ellipsis; white-space: nowrap; }
+.date-field text:first-child { margin-bottom: 7rpx; color: var(--theme-text-muted); font-size: 20rpx; }
+.range-divider { color: var(--theme-text-muted); font-size: var(--font-caption); }
 
-/* 触摸反馈：可点击元素统一按压态提示。 */
-.period-tab:active, .picker-tab:active, .nav-button:active, .date-cell:active, .week-cell:active, .range-control:active { opacity: .7; }
+/* 汇总 Hero：区间总支出为主角，均值副信息靠右 */
+.summary-card { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; padding: 30rpx 32rpx; border-radius: calc(var(--theme-radius-card) + 10rpx); box-shadow: var(--elev-3); }
+.summary-label { display: block; color: rgba(255, 255, 255, .72); font-size: var(--font-caption); }
+.summary-amount-row { display: flex; align-items: baseline; gap: 6rpx; margin-top: 12rpx; }
+.summary-currency { color: rgba(255, 255, 255, .85); font-size: 28rpx; font-weight: 500; }
+.summary-amount { font-size: 48rpx; font-weight: 700; font-variant-numeric: tabular-nums; }
+.summary-side { text-align: right; }
+.summary-side text { display: block; }
+.summary-side text:first-child { color: rgba(255, 255, 255, .72); font-size: var(--font-caption); }
+.summary-side text:last-child { margin-top: 12rpx; font-size: 28rpx; font-weight: 600; font-variant-numeric: tabular-nums; }
+.summary-avatar { width: 88rpx; height: 88rpx; margin-left: 8rpx; padding: 8rpx; box-sizing: border-box; border-radius: 50%; background: rgba(255, 255, 255, .92); flex-shrink: 0; box-shadow: 0 4rpx 14rpx rgba(93, 58, 21, .2); }
 
-/* 猫咪主题装饰：mascots 存在时显示的猫咪元素。 */
-/* 汇总卡右侧头像（白圆底衬托） */
-.range-info { display: flex; align-items: center; }
-.mini-cat { width: 56rpx; height: 56rpx; margin-right: 14rpx; padding: 4rpx; box-sizing: border-box; border-radius: 50%; background: var(--theme-primary-soft); }
+/* 卡片头 */
+.card-header { display: flex; align-items: flex-start; justify-content: space-between; }
 .card-title-wrap { display: flex; align-items: center; }
 .card-paw { width: 30rpx; height: 30rpx; margin-right: 10rpx; }
-.summary-avatar { width: 88rpx; height: 88rpx; margin-left: 8rpx; padding: 8rpx; box-sizing: border-box; border-radius: 50%; background: rgba(255, 255, 255, .92); flex-shrink: 0; box-shadow: 0 4rpx 14rpx rgba(93, 58, 21, .2); }
-.chart-empty, .empty { display: flex; flex-direction: column; align-items: center; }
+.card-title { display: block; color: var(--theme-text); font-size: var(--font-md); font-weight: 600; }
+.card-subtitle { display: block; margin-top: 7rpx; color: var(--theme-text-muted); font-size: var(--font-caption); }
+.peak-label, .total-count { padding: 8rpx 14rpx; border-radius: 999rpx; color: var(--theme-primary); background: var(--theme-primary-soft); font-size: var(--font-caption); font-variant-numeric: tabular-nums; }
+
+/* 折线图 */
+.trend-card { position: relative; }
+.trend-chart { display: flex; gap: 12rpx; margin-top: 24rpx; }
+.trend-y-axis { display: flex; flex: 0 0 68rpx; flex-direction: column; justify-content: space-between; height: 184rpx; padding: 1rpx 0; color: var(--theme-text-muted); font-size: 19rpx; line-height: 1; text-align: right; box-sizing: border-box; }
+.trend-plot-wrap { flex: 1; min-width: 0; }
+.trend-plot { position: relative; height: 184rpx; border-bottom: 1rpx solid var(--theme-border); }
+.trend-grid-line { position: absolute; right: 0; left: 0; height: 1rpx; background: var(--theme-border); }
+.grid-top { top: 0; }
+.grid-middle { top: 50%; }
+.grid-bottom { bottom: 0; }
+.trend-segment { position: absolute; z-index: 1; height: 4rpx; border-radius: 4rpx; background: var(--theme-primary); transform-origin: left center; }
+.trend-point { position: absolute; z-index: 2; width: 12rpx; height: 12rpx; margin-bottom: -6rpx; margin-left: -6rpx; border: 3rpx solid var(--theme-surface); border-radius: 50%; background: var(--theme-primary); box-shadow: 0 2rpx 6rpx var(--theme-primary-shadow); box-sizing: border-box; }
+.trend-x-axis { position: relative; height: 34rpx; margin-top: 10rpx; }
+.trend-x-axis text { position: absolute; overflow: hidden; max-width: 68rpx; color: var(--theme-text-muted); font-size: 18rpx; line-height: 1; text-align: center; text-overflow: ellipsis; white-space: nowrap; transform: translateX(-50%); }
+.chart-empty { display: flex; flex-direction: column; align-items: center; padding: 90rpx 0 54rpx; color: var(--theme-text-muted); font-size: var(--font-body); text-align: center; }
+
+/* 占比饼图与分类排行 */
+.pie-section { display: flex; align-items: center; gap: 18rpx; margin-top: 26rpx; }
+.pie-chart { position: relative; display: flex; flex: 0 0 260rpx; align-items: center; justify-content: center; width: 260rpx; height: 260rpx; border-radius: 50%; background: var(--theme-primary); }
+.pie-hole { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 156rpx; height: 156rpx; border-radius: 50%; background: var(--theme-surface); }
+.pie-hole text:first-child { color: var(--theme-text-muted); font-size: 20rpx; }
+.pie-hole text:last-child { margin-top: 8rpx; color: var(--theme-text); font-size: var(--font-caption); font-weight: 600; font-variant-numeric: tabular-nums; }
+.pie-legend { display: flex; flex: 1; flex-direction: column; gap: 16rpx; min-width: 0; }
+.legend-item { display: flex; align-items: center; gap: 10rpx; min-width: 0; }
+.legend-dot { flex: 0 0 14rpx; width: 14rpx; height: 14rpx; border-radius: 50%; }
+.legend-item view { display: flex; flex: 1; align-items: center; justify-content: space-between; gap: 8rpx; min-width: 0; }
+.legend-item text { overflow: hidden; color: var(--theme-text-muted); font-size: 21rpx; text-overflow: ellipsis; white-space: nowrap; }
+.legend-item text:last-child { flex: 0 0 auto; color: var(--theme-text-strong); font-weight: 500; }
+.category-list { margin-top: 24rpx; }
+.category-row + .category-row { margin-top: 25rpx; }
+.category-row-top, .category-row-bottom { display: flex; align-items: center; justify-content: space-between; }
+.category-row-top { color: var(--theme-text-strong); font-size: 25rpx; font-weight: 500; font-variant-numeric: tabular-nums; }
+.category-name { display: flex; align-items: center; gap: 12rpx; min-width: 0; }
+.category-name text:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rank-badge { display: flex; align-items: center; justify-content: center; width: 34rpx; height: 34rpx; border-radius: 50%; color: var(--theme-primary); background: var(--theme-primary-soft); font-size: 20rpx; }
+.progress-track { height: 13rpx; margin: 14rpx 0 9rpx; overflow: hidden; border-radius: 10rpx; background: var(--theme-primary-soft); }
+.progress-value { height: 100%; border-radius: inherit; background: linear-gradient(90deg, var(--theme-primary), var(--theme-primary-end)); }
+.category-row-bottom { color: var(--theme-text-muted); font-size: 21rpx; }
+.empty { display: flex; flex-direction: column; align-items: center; padding: 65rpx 0 35rpx; color: var(--theme-text-muted); text-align: center; }
 .empty-cat { width: 170rpx; height: 170rpx; margin-bottom: 8rpx; }
-.ledger-cat-footer { display: flex; flex-direction: column; align-items: center; gap: 10rpx; margin-top: 8rpx; padding: 34rpx 30rpx 30rpx; border-radius: var(--theme-radius-card); background: var(--theme-surface); box-shadow: 0 8rpx 28rpx rgba(36, 58, 99, .04); }
+
+/* 周期选择弹层 */
+.picker-mask { position: fixed; z-index: 1000; top: 0; right: 0; bottom: 0; left: 0; display: flex; align-items: flex-end; background: rgba(0, 0, 0, .5); }
+.date-picker { width: 100%; min-height: 610rpx; padding: 18rpx 40rpx calc(40rpx + env(safe-area-inset-bottom)); border-radius: 36rpx 36rpx 0 0; background: var(--theme-surface); box-shadow: var(--elev-3); box-sizing: border-box; }
+.picker-handle { width: 72rpx; height: 8rpx; margin: 0 auto 30rpx; border-radius: 999rpx; background: var(--theme-border); }
+.picker-tabs { display: flex; justify-content: space-around; margin-bottom: 34rpx; }
+.picker-tab { position: relative; padding: 8rpx 16rpx; color: var(--theme-text-muted); font-size: var(--font-md); }
+.picker-tab.active { color: var(--theme-text); font-weight: 600; }
+.picker-tab.active::after { position: absolute; right: 16rpx; bottom: 0; left: 16rpx; height: 6rpx; border-radius: 999rpx; background: var(--theme-primary); content: ''; }
+.picker-nav { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24rpx; }
+.nav-button { width: 70rpx; color: var(--theme-text); font-size: 64rpx; line-height: 1; text-align: center; }
+.picker-heading { color: var(--theme-text); font-size: 34rpx; font-weight: 600; }
+.date-grid { display: grid; grid-template-columns: repeat(3, 1fr); row-gap: 24rpx; }
+.date-cell { display: flex; align-items: center; justify-content: center; height: 76rpx; border-radius: 16rpx; color: var(--theme-text-strong); font-size: 29rpx; }
+.date-cell.active { color: var(--theme-on-primary); background: var(--theme-primary); box-shadow: 0 8rpx 16rpx var(--theme-primary-shadow); }
+.week-list { display: flex; flex-direction: column; gap: 16rpx; max-height: 440rpx; overflow-y: auto; overscroll-behavior: contain; }
+.week-cell { display: flex; align-items: center; justify-content: space-between; padding: 22rpx 24rpx; border-radius: 18rpx; color: var(--theme-text-strong); background: var(--theme-page-bg); font-size: var(--font-body); }
+.week-cell text:last-child { color: var(--theme-text-muted); font-size: 22rpx; }
+.week-cell.active { color: var(--theme-on-primary); background: var(--theme-primary); }
+.week-cell.active text:last-child { color: rgba(255, 255, 255, .78); }
+
+/* 猫咪页脚 */
+.ledger-cat-footer { display: flex; flex-direction: column; align-items: center; gap: 10rpx; margin-top: 8rpx; padding: 34rpx 30rpx 30rpx; border-radius: var(--theme-radius-card); background: var(--theme-surface); box-shadow: var(--elev-2); }
 .ledger-cat-footer image { width: 150rpx; height: 150rpx; }
-.ledger-cat-footer text { color: var(--theme-text-muted); font-size: 23rpx; }
+.ledger-cat-footer text { color: var(--theme-text-muted); font-size: var(--font-caption); }
+
+/* 按压态 */
+.period-tab:active, .picker-tab:active, .nav-button:active, .date-cell:active, .week-cell:active { opacity: .7; }
 </style>

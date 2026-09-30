@@ -44,7 +44,8 @@ export function refreshAccessToken() {
   return refreshPromise
 }
 
-export function request({ url, method = 'GET', data, unwrapResult = false, header = {}, retryOnUnauthorized = true }) {
+export function request({ url, method = 'GET', data, unwrapResult = false, header = {}, retryOnUnauthorized = true, refreshRound = 0 }) {
+  const sentToken = authStore.token
   return new Promise((resolve, reject) => {
     uni.request({
       url: `${API_BASE_URL}${url}`,
@@ -61,9 +62,14 @@ export function request({ url, method = 'GET', data, unwrapResult = false, heade
         if (statusCode === 401) {
           // retryOnUnauthorized=false 用于公开端点（登录/发码/注册/重置密码）：
           // 这类 401 不是会话失效，不触发刷新重试，也不能把用户踢回登录页。
-          if (retryOnUnauthorized) {
-            refreshAccessToken()
-              .then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized: false }))
+          if (retryOnUnauthorized && refreshRound < 2) {
+            // 竞态防护：请求发出后若 token 已被其他并发请求的刷新轮换，直接用新 token 重试，
+            // 不再发起二次刷新——否则轮换会作废前一次重试所用的 token，导致用户被误踢回登录页。
+            const step = (sentToken && authStore.token !== sentToken)
+              ? Promise.resolve()
+              : refreshAccessToken()
+            step
+              .then(() => request({ url, method, data, unwrapResult, header, retryOnUnauthorized, refreshRound: refreshRound + 1 }))
               .then(resolve)
               .catch((error) => {
                 redirectToLogin()

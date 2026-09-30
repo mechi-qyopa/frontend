@@ -2,12 +2,12 @@
   <view class="tab-bar" :style="themeStore.cssVariables">
     <!-- 猫咪主题：探头白猫趴在导航栏顶边中央（不拦截点击） -->
     <image v-if="mascots" class="tab-cat" :src="mascots.tabcat" mode="aspectFit" />
-    <view v-for="(tab, index) in tabs" :key="tab.pagePath" :class="['tab-item', { active: selected === tab.pagePath }]" @click="switchTab(tab)">
+    <view v-for="(tab, index) in tabs" :key="tab.pagePath" :class="['tab-item', { active: selected === tab.pagePath }]" :aria-label="tab.text" @click="switchTab(tab)">
       <view class="tab-icon-wrap">
         <!-- 猫咪主题：选中项上方小爪印指示 -->
         <image v-if="mascots && selected === tab.pagePath" class="tab-active-paw" :src="mascots.cherry" mode="aspectFit" />
-        <!-- 图标名随主题切换（各主题 icons.tab），颜色由 u-icon 内联，选中态用主题主色 -->
-        <u-icon :name="themeStore.currentTheme.icons.tab[index]" :size="23" :color="selected === tab.pagePath ? themeStore.currentTheme.colors.primary : themeStore.currentTheme.colors.tabInactive" />
+        <!-- 图标名随主题切换（各主题 icons.tab）；选中态为主色渐变圆角方底、白图标 -->
+        <u-icon :name="themeStore.currentTheme.icons.tab[index]" :size="22" :color="selected === tab.pagePath ? '#ffffff' : themeStore.currentTheme.colors.tabInactive" />
       </view>
       <text class="tab-label">{{ mascots ? tab.text + '喵' : tab.text }}</text>
     </view>
@@ -51,6 +51,7 @@ function measureHeight() {
     uni.createSelectorQuery().in(instance?.proxy)
       .select('.tab-bar')
       .boundingClientRect((rect) => {
+        // 平底栏贴底：视觉遮挡 = 栏体本身（内含底部安全区），chat 页按此收缩页面高度
         if (rect?.height) themeStore.appTabBar.heightPx = Math.ceil(rect.height)
       })
       .exec()
@@ -75,15 +76,17 @@ function switchTab(tab) {
 </script>
 
 <style scoped>
-.tab-bar { position: fixed; bottom: 0; left: 0; right: 0; z-index: 100; display: flex; min-height: 112rpx; padding: 14rpx 16rpx calc(14rpx + env(safe-area-inset-bottom)); border-top: 1rpx solid var(--theme-border); background: var(--theme-surface); box-shadow: 0 -10rpx 30rpx rgba(28, 39, 59, .06); box-sizing: border-box; }
-.tab-item { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 5rpx; min-width: 0; color: var(--theme-tab-inactive); touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
-.tab-item:active { opacity: .7; }
+/* 平底导航栏：贴底全宽、仅一条发丝线上边，作为安静的"系统框架"层；悬浮胶囊输入框保持"工具"感，两种形态不抢戏 */
+.tab-bar { position: fixed; right: 0; bottom: 0; left: 0; z-index: 100; display: flex; padding: 12rpx 16rpx calc(10rpx + env(safe-area-inset-bottom, 0px)); border-top: 1rpx solid var(--theme-border); background: var(--theme-surface); box-sizing: border-box; }
+.tab-item { display: flex; flex: 1; flex-direction: column; align-items: center; justify-content: center; gap: 4rpx; min-width: 0; border-radius: var(--theme-radius-control, 16rpx); color: var(--theme-tab-inactive); transition: transform .15s ease; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.tab-item:active { transform: scale(.94); }
 /* 猫咪主题：探头白猫（奶油圆底衬托，pointer-events 不拦截 tab 点击） */
-.tab-cat { position: absolute; top: -40rpx; left: 50%; margin-left: -44rpx; width: 88rpx; height: 88rpx; padding: 12rpx; box-sizing: border-box; background: var(--theme-primary-soft); border-radius: 50%; box-shadow: 0 6rpx 16rpx rgba(93, 58, 21, .16); pointer-events: none; }
+.tab-cat { position: absolute; top: -38rpx; left: 50%; margin-left: -44rpx; width: 88rpx; height: 88rpx; padding: 12rpx; box-sizing: border-box; background: var(--theme-primary-soft); border-radius: 50%; box-shadow: 0 6rpx 16rpx rgba(93, 58, 21, .16); pointer-events: none; }
 .tab-item.active .tab-active-paw { position: absolute; top: -30rpx; left: 50%; margin-left: -15rpx; width: 30rpx; height: 30rpx; transform: rotate(-18deg); }
-.tab-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 54rpx; height: 46rpx; border-radius: var(--theme-radius-control, 16rpx); transition: background .2s ease, box-shadow .2s ease; }
-.tab-label { color: inherit; font-size: 28rpx; line-height: 1.2; transition: color .2s ease; }
+.tab-icon-wrap { position: relative; display: flex; align-items: center; justify-content: center; width: 60rpx; height: 52rpx; border-radius: var(--theme-radius-control, 16rpx); transition: background .2s ease, box-shadow .2s ease; }
+/* 选中项：主色渐变圆角方托起白图标，label 同步主色 */
 .tab-item.active { color: var(--theme-primary); }
-.tab-item.active .tab-icon-wrap { color: var(--theme-primary); background: var(--theme-primary-soft); box-shadow: 0 5rpx 12rpx var(--theme-primary-shadow); }
+.tab-item.active .tab-icon-wrap { background: linear-gradient(150deg, var(--theme-primary), var(--theme-primary-end)); box-shadow: 0 6rpx 14rpx var(--theme-primary-shadow); }
 .tab-item.active .tab-label { font-weight: 600; }
+.tab-label { color: inherit; font-size: 21rpx; line-height: 1.2; transition: color .2s ease; }
 </style>
